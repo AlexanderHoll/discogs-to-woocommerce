@@ -19,6 +19,14 @@ add_action('admin_init', 'register_discogs_bulk_action');
 // Hook into the admin menu action
 add_action('admin_menu', 'd2w_menu');
 
+// Function to remove "(NUMBER)"
+function clean_artist_name($text) {
+    // Remove numbers in brackets using regular expression
+    $cleaned_text = preg_replace('/\(\d+\)/', '', $text);
+
+    return $cleaned_text;
+}
+
 function register_discogs_bulk_action() {
     // Check if 'insert_as_product' action is set in the request
     if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'insert_as_product') {
@@ -250,10 +258,10 @@ function return_listings() {
         foreach ($data['listings'] as $listing) {
             // Ensure the necessary nested keys exist and provide defaults if they don't
             $id = isset($listing['id']) ? $listing['id'] : '';
-            $artist = isset($listing['release']['artist']) ? $listing['release']['artist'] : '';
+            $artist = isset($listing['release']['artist']) ? clean_artist_name($listing['release']['artist']) : '';
             $title = isset($listing['release']['title']) ? $listing['release']['title'] : '';
             $comments = isset($listing['comments']) ? $listing['comments'] : '';
-            $description = isset($listing['release']['description']) ? $listing['release']['description'] : '';
+            $description = isset($listing['release']['description']) ? clean_artist_name($listing['release']['description']) : '';
             $value = isset($listing['price']['value']) ? $listing['price']['value'] : 0.0;
 
             // Construct the product array with the values (either from the listing or defaults)
