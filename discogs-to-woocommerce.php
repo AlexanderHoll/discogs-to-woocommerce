@@ -22,13 +22,23 @@ add_action('admin_menu', 'd2w_menu');
 function register_discogs_bulk_action() {
     // Check if 'insert_as_product' action is set in the request
     if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'insert_as_product') {
-        
+        $draft = 0;
+ 
         // Trigger the action
-        do_action('process_bulk_action');
+        do_action('process_bulk_action', $draft);
+    }
+
+    // Check if 'insert_as_product_d' action is set in the request
+    if (isset($_REQUEST['action']) && $_REQUEST['action'] === 'insert_as_product_d') {
+        $draft = 1;
+
+        // Trigger the action
+        do_action('process_bulk_action', $draft);
     }
 }
 
-function handle_bulk_action() {
+function handle_bulk_action($draft) {
+    
     // Check if the form has been submitted and products are selected
     if (isset($_POST['product']) && !empty($_POST['product'])) {
         // Check if the session is started
@@ -59,6 +69,12 @@ function handle_bulk_action() {
                 $new_product->set_description($selected_product['description']);
                 $new_product->set_regular_price($selected_product['value']);
                 $new_product->set_short_description($selected_product['comments']);
+
+                // Set the post status to 'draft'
+                if ($draft) {
+                    $new_product->set_status('draft');
+                }
+                
 
                 // Save the product
                 $new_product_id = $new_product->save();
@@ -106,7 +122,7 @@ function d2w_menu() {
 // make api call, fetch data from discogs
 function fetch_discogs() {
     // variables
-    $discogs_user = " ";
+    $discogs_user = "DeckHeadRecords";
     $api_url = 'https://api.discogs.com/users/' . $discogs_user . '/inventory';
 
     // Fetch API data
@@ -152,7 +168,8 @@ class Discogs_Product_List_Table extends WP_List_Table {
     // Establish bulk actions for table
     public function get_bulk_actions() {
         $actions = [
-            'insert_as_product' => 'Insert as Product',
+            'insert_as_product' => 'Insert as Product (Published)',
+            'insert_as_product_d' => 'Insert as Product (Draft)',
         ];
         return $actions;
     }
