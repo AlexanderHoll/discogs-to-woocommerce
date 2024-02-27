@@ -57,11 +57,14 @@ function handle_bulk_action($draft) {
         // Retrieve product details from the session
         $products_data = isset($_SESSION['discogs_products_data']) ? $_SESSION['discogs_products_data'] : [];
 
-    // Loop through each selected product ID to fetch its details and create a new WooCommerce product
-    foreach ($_POST['product'] as $product_id) {
-        // Find the product in the products_data array based on its ID
-        $selected_product = array_filter($products_data, function ($product) use ($product_id) {
-            return $product['id'] == $product_id;
+        // Initialize result messages array
+        $result_messages = [];
+
+        // Loop through each selected product ID to fetch its details and create a new WooCommerce product
+        foreach ($_POST['product'] as $product_id) {
+            // Find the product in the products_data array based on its ID
+            $selected_product = array_filter($products_data, function ($product) use ($product_id) {
+                return $product['id'] == $product_id;
         });
 
             if (!empty($selected_product)) {
@@ -83,25 +86,53 @@ function handle_bulk_action($draft) {
                     $new_product->set_status('draft');
                 }
                 
-
                 // Save the product
                 $new_product_id = $new_product->save();
 
+                // if ($new_product_id) {
+                //     echo "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id}.<br>";
+                // } else {
+                //     echo "Failed to create product '{$selected_product['title']}'.<br>";
+                // }
                 if ($new_product_id) {
-                    echo "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id}.<br>";
+                    // Store the result message
+                    $result_messages[] = "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id} and status set to draft.";
                 } else {
-                    echo "Failed to create product '{$selected_product['title']}'.<br>";
+                    // Store the result message
+                    $result_messages[] = "Failed to create product '{$selected_product['title']}'.";
                 }
             } else {
-                // Handle case where the product ID doesn't match any fetched products
-                echo "Product with ID $product_id not found!";
+                // // Handle case where the product ID doesn't match any fetched products
+                // echo "Product with ID $product_id not found!";
+
+                // Store the result message
+                $result_messages[] = "Product with ID $product_id not found!";
             }
         }
+
+        // Display the result messages within the WordPress admin area
+        ?>
+        <div class="wrap">
+            <h1 class="wp-heading-inline">Import Results</h1>
+
+            <?php foreach ($result_messages as $message) : ?>
+                <p><?php echo esc_html($message); ?></p>
+            <?php endforeach; ?>
+
+            <?php
+            // Add a link back to the main plugin page
+            $plugin_page_url = admin_url('admin.php?page=d2w_page'); // Replace 'd2w_page' with the actual slug of your plugin page
+            echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
+            ?>
+        </div>
+
+        <?php
+
+        exit;
     }
-    
-    // Exit to prevent the rest of the WordPress core from executing
-    exit;
+
 }
+
 
 // Enqueue admin styles
 function custom_enqueue_admin_styles() {
