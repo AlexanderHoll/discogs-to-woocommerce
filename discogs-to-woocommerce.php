@@ -160,7 +160,7 @@ function d2w_menu() {
 add_action('admin_menu', 'd2w_submenu_page');
 function d2w_submenu_page() {
     add_submenu_page(
-        'd2w_page',                      // Parent slug
+        null,                      // Parent slug
         'Import Results',                // Page title
         'Import Results',                // Menu title
         'manage_options',                // Capability
