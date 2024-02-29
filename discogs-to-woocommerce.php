@@ -315,11 +315,9 @@ function return_listings($page = 1) {
     }
 
     // MAKE THIS DYNAMIC - FETCH FROM DATA
-    $per_page = 50;
+    // $per_page = 50;
 
-    // Return only the subset of data for the current page
-    // return array_slice($products, ($page - 1) * $per_page, $per_page);
-
+    // update this so we don't fetch ALL products at once, only ones need on the page
     return $products;
 }
 
