@@ -89,11 +89,6 @@ function handle_bulk_action($draft) {
                 // Save the product
                 $new_product_id = $new_product->save();
 
-                // if ($new_product_id) {
-                //     echo "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id}.<br>";
-                // } else {
-                //     echo "Failed to create product '{$selected_product['title']}'.<br>";
-                // }
                 if ($new_product_id) {
                     // Store the result message
                     $result_messages[] = "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id} and status set to draft.";
@@ -102,8 +97,6 @@ function handle_bulk_action($draft) {
                     $result_messages[] = "Failed to create product '{$selected_product['title']}'.";
                 }
             } else {
-                // // Handle case where the product ID doesn't match any fetched products
-                // echo "Product with ID $product_id not found!";
 
                 // Store the result message
                 $result_messages[] = "Product with ID $product_id not found!";
@@ -164,6 +157,8 @@ function fetch_discogs() {
     $discogs_user = "DeckHeadRecords";
     $api_url = 'https://api.discogs.com/users/' . $discogs_user . '/inventory';
 
+    $discogs_info["account_info"] = array($discogs_user, $api_url);
+
     // Fetch API data
     $response = wp_remote_get($api_url);
 
@@ -174,6 +169,7 @@ function fetch_discogs() {
 
     $body = wp_remote_retrieve_body($response);
     $data = json_decode($body, true);  // Decode JSON data
+    array_push($data, $discogs_info);
 
     return $data;
 
@@ -317,6 +313,8 @@ function return_listings() {
 function return_pagination() {
     $data = fetch_discogs();
 
+    
+
     // Parse pagination array
     if (isset($data['pagination'])) {
         $pagination = $data['pagination'];
@@ -325,16 +323,48 @@ function return_pagination() {
         $pagination = [];
     }
 
+    // Parse Discogs info array for base url
+    if (isset($data[0]["account_info"])) {
+        $account_info = $data[0]["account_info"];
+    } else {
+        // Handle missing pagination data
+        $account_info = [];
+    }
+
+    // https://api.discogs.com/users/DeckHeadRecords/inventory?page=5&per_page=50
+
+    $base_url = $account_info[1];
+    $total_pages = $pagination["pages"];
+    $per_page = $pagination["per_page"];
+
+    $urls = generate_discogs_urls($base_url, $total_pages, $per_page);
+
     // Extract URLs from the array
-    $next_url = isset($pagination['urls']['next']) ? $pagination['urls']['next'] : '';
-    $last_url = isset($pagination['urls']['last']) ? $pagination['urls']['last'] : '';
+    // $next_url = isset($pagination['urls']['next']) ? $pagination['urls']['next'] : '';
+    // $last_url = isset($pagination['urls']['last']) ? $pagination['urls']['last'] : '';
+    $first_url = current($urls);
+    $last_url = end($urls);
+    
 
     // Return URLs as an array
     return [
-        'next_url' => $next_url,
+        'urls' => $urls,
+        'first_url' => $first_url,
         'last_url' => $last_url
     ];
 }
+
+function generate_discogs_urls($base_url, $total_pages, $per_page) {
+    $urls = [];
+
+    for ($page = 1; $page <= $total_pages; $page++) {
+        $url = $base_url . "?page={$page}&per_page={$per_page}";
+        $urls[] = $url;
+    }
+
+    return $urls;
+}
+
 
 // Function to display content for the menu page
 function d2w_page_content() {
@@ -342,9 +372,8 @@ function d2w_page_content() {
     echo '<h1>Welcome to Discogs to WooCommerce</h1>';
 
     // Fetch and process listings
-    
     $products = return_listings();
-    
+
     // Debug: Check if products are fetched
     if (empty($products)) {
         echo '<p>No products fetched.</p>';
@@ -355,42 +384,49 @@ function d2w_page_content() {
     $table = new Discogs_Product_List_Table();
     // Prepare table items
     $table->prepare_items();
-    
-    // display top of table nav / bulk actions
-    echo '<form method="post" action="' . admin_url('admin-post.php') . '">';
-    echo '<input type="hidden" name="action" value="process_bulk_action">';
 
-    // render Discogs listings table
+    // Display top of the table nav / bulk actions
+    echo '<form method="get" action="">';
+
+    // Render Discogs listings table
     echo '<div class="wrap">';
     echo '<h1 class="wp-heading-inline">Product Listings</h1>';
-    // render issue here
+    // Render issue here
     $table->display();
     echo '</div>';
     echo '</form>';
 
     /* end of listings */
-    
+
     /* Start of pagination */
     // Capture returned pagination URLs
     $pagination_urls = return_pagination();
 
+    // var_dump($pagination_urls);
+    // die();
+
     // Extract URLs from the captured array
-    $next_url = isset($pagination_urls['next_url']) ? $pagination_urls['next_url'] : '';
-    $last_url = isset($pagination_urls['last_url']) ? $pagination_urls['last_url'] : '';
+    // $next_url = isset($pagination_urls['next_url']) ? $pagination_urls['next_url'] : '';
+    // $last_url = isset($pagination_urls['last_url']) ? $pagination_urls['last_url'] : '';
 
     // Output pagination buttons HTML
-    echo '<div>';
-    
-    if (!empty($next_url)) {
-        echo '<a href="' . esc_url($next_url) . '" class="pagination-button">Next</a>';
+    echo '<div class="pagination-buttons">';
+
+    // Display Previous link if available
+    if (!empty($last_url)) {
+        echo '<a href="' . esc_url($last_url) . '" class="pagination-button">First</a>';
     }
 
-    if (!empty($last_url)) {
-        echo '<a href="' . esc_url($last_url) . '" class="pagination-button">Last</a>';
+    // Display Next link if available
+    if (!empty($next_url)) {
+        $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
+        echo '<a href="' . esc_url(add_query_arg('paged', $current_page + 1)) . '" class="pagination-button">Next</a>';
     }
 
     echo '</div>';
-    /* end of pagination */
+    /* End of pagination */
 
     echo '</div>';
 }
+
+
