@@ -49,6 +49,7 @@ function handle_bulk_action($draft) {
     
     // Check if the form has been submitted and products are selected
     if (isset($_POST['product']) && !empty($_POST['product'])) {
+
         // Check if the session is started
         if (!session_id()) {
             session_start();
@@ -65,66 +66,75 @@ function handle_bulk_action($draft) {
             // Find the product in the products_data array based on its ID
             $selected_product = array_filter($products_data, function ($product) use ($product_id) {
                 return $product['id'] == $product_id;
-        });
+            });
 
             if (!empty($selected_product)) {
 
                 // Since array_filter returns an array, we pick the first (and only) item
                 $selected_product = reset($selected_product);
 
-                // Create a new WooCommerce product
-                $new_product = new WC_Product();
+                // Use wc_insert_product instead of wc_create_product
+                // $new_product_id = wc_insert_product($new_product_data);
 
-                // Set product data
-                $new_product->set_name($selected_product['artist'] . ' - ' . $selected_product['title']);
-                $new_product->set_description($selected_product['description']);
-                $new_product->set_regular_price($selected_product['value']);
-                $new_product->set_short_description($selected_product['comments']);
+                // Establish the product data
+                $new_product_data = array(
+                    'name'              => $selected_product['artist'] . ' - ' . $selected_product['title'],
+                    'regular_price'     => $selected_product['value'],
+                    'description'       => $selected_product['description'],
+                    'short_description' => $selected_product['comments'],
+                    'status'            => $draft ? 'draft' : 'publish',
+                );
 
-                // Set the post status to 'draft'
-                if ($draft) {
-                    $new_product->set_status('draft');
+                // Insert the product into the posts table
+                $product_id = wp_insert_post(array(
+                    'post_title'   => $new_product_data['name'],
+                    'post_content' => $new_product_data['description'],
+                    'post_excerpt' => $new_product_data['short_description'],
+                    'post_status'  => $new_product_data['status'],
+                    'post_type'    => 'product',
+                ));
+
+                // Add product meta data
+                if ($product_id) {
+                    update_post_meta($product_id, '_price', $new_product_data['regular_price']);
+                    // Add more meta data as needed
                 }
-                
-                // Save the product
-                $new_product_id = $new_product->save();
 
-                if ($new_product_id) {
+                // Set product type to 'simple'
+                wp_set_object_terms($product_id, 'simple', 'product_type');
+
+                if ($product_id) {
                     // Store the result message
-                    $result_messages[] = "Product '{$selected_product['title']}' created successfully with ID: {$new_product_id} and status set to draft.";
+                    $result_messages[] = "Product '{$selected_product['title']}' created successfully with ID: {$product_id} and status set to " . ($draft ? 'draft' : 'publish') . ".";
                 } else {
                     // Store the result message
                     $result_messages[] = "Failed to create product '{$selected_product['title']}'.";
                 }
             } else {
-
                 // Store the result message
                 $result_messages[] = "Product with ID $product_id not found!";
             }
         }
 
         // Display the result messages within the WordPress admin area
-        ?>
-        <div class="wrap">
-            <h1 class="wp-heading-inline">Import Results</h1>
+        echo '<div class="wrap">';
+        echo '<h1 class="wp-heading-inline">Import Results</h1>';
 
-            <?php foreach ($result_messages as $message) : ?>
-                <p><?php echo esc_html($message); ?></p>
-            <?php endforeach; ?>
+        foreach ($result_messages as $message) {
+            echo "<p>" . esc_html($message) . "</p>";
+        }
 
-            <?php
-            // Add a link back to the main plugin page
-            $plugin_page_url = admin_url('admin.php?page=d2w_page'); // Replace 'd2w_page' with the actual slug of your plugin page
-            echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
-            ?>
-        </div>
-
-        <?php
+        // Add a link back to the main plugin page
+        $plugin_page_url = admin_url('admin.php?page=d2w_page'); // Replace 'd2w_page' with the actual slug of your plugin page
+        echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
+        echo '</div>';
 
         exit;
+    } else {
+        print_r("ERROR - POST variable is empty!");
     }
-
 }
+
 
 
 // Enqueue admin styles
@@ -211,19 +221,16 @@ class Discogs_Product_List_Table extends WP_List_Table {
     public function prepare_items() {
         // Fetch and prepare items for the table
         $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
-        $products_data = return_listings($current_page);
+        $this->items = return_listings($current_page);
     
         // Store products_data in a session variable to be fetched when inserting products
         if (!session_id()) {
             session_start();
         }
-        $_SESSION['discogs_products_data'] = $products_data;
+        $_SESSION['discogs_products_data'] = $this->items;
     
         // Prepare column headers
         $this->_column_headers = [$this->get_columns(), [], []];
-    
-        // Fetch and prepare items for the table
-        $this->items = $products_data;
     
         // Process bulk action
         $this->process_bulk_action();
@@ -233,6 +240,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
             do_action('process_bulk_action', $_POST['product']);
         }
     }
+    
     
     
     // define what each column in the table displays
@@ -306,7 +314,12 @@ function return_listings($page = 1) {
         }
     }
 
-    return $products;
+    $per_page = 50;
+
+    // Return only the subset of data for the current page
+    return array_slice($products, ($page - 1) * $per_page, $per_page);
+
+    // return $products;
 }
 
 
@@ -375,16 +388,16 @@ function d2w_page_content() {
     $table->prepare_items();
 
     // Display top of the table nav / bulk actions
-    echo '<form method="get" action="">';
+    // echo '<form method="get" action="">';
+    echo '<form method="post" action="">';
 
     // Render Discogs listings table
     echo '<div class="wrap">';
-    echo '<h1 class="wp-heading-inline">Product Listings</h1>';
+    echo '<h2 class="wp-heading-inline">Product Listings</h2>';
     // Render issue here
     $table->display();
     echo '</div>';
     echo '</form>';
-
     /* End of listings */
 
     /* Start of pagination */
