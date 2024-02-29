@@ -152,10 +152,10 @@ function d2w_menu() {
 }
 
 // make api call, fetch data from discogs
-function fetch_discogs() {
+function fetch_discogs($page = 1) {
     // variables
     $discogs_user = "DeckHeadRecords";
-    $api_url = 'https://api.discogs.com/users/' . $discogs_user . '/inventory';
+    $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}";
 
     $discogs_info["account_info"] = array($discogs_user, $api_url);
 
@@ -172,7 +172,6 @@ function fetch_discogs() {
     array_push($data, $discogs_info);
 
     return $data;
-
 }
 
 // create a custom class for the table
@@ -210,22 +209,22 @@ class Discogs_Product_List_Table extends WP_List_Table {
     }
 
     public function prepare_items() {
-
         // Fetch and prepare items for the table
-        $products_data = return_listings();
-
+        $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
+        $products_data = return_listings($current_page);
+    
         // Store products_data in a session variable to be fetched when inserting products
         if (!session_id()) {
             session_start();
         }
         $_SESSION['discogs_products_data'] = $products_data;
-
+    
         // Prepare column headers
         $this->_column_headers = [$this->get_columns(), [], []];
-        
+    
         // Fetch and prepare items for the table
-        $this->items = return_listings();
-        
+        $this->items = $products_data;
+    
         // Process bulk action
         $this->process_bulk_action();
     
@@ -234,6 +233,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
             do_action('process_bulk_action', $_POST['product']);
         }
     }
+    
     
     // define what each column in the table displays
     public function column_default($item, $column_name) {
@@ -272,8 +272,8 @@ class Discogs_Product_List_Table extends WP_List_Table {
     }
 }
 
-function return_listings() {
-    $data = fetch_discogs();
+function return_listings($page = 1) {
+    $data = fetch_discogs($page);
 
     // Initialize an empty array to store products
     $products = [];
@@ -307,13 +307,11 @@ function return_listings() {
     }
 
     return $products;
-
 }
 
-function return_pagination() {
-    $data = fetch_discogs();
 
-    
+function return_pagination($current_page) {
+    $data = fetch_discogs($current_page); // Fetch data for the current page to get pagination info
 
     // Parse pagination array
     if (isset($data['pagination'])) {
@@ -331,39 +329,29 @@ function return_pagination() {
         $account_info = [];
     }
 
-    // https://api.discogs.com/users/DeckHeadRecords/inventory?page=5&per_page=50
-
     $base_url = $account_info[1];
     $total_pages = $pagination["pages"];
     $per_page = $pagination["per_page"];
 
     $urls = generate_discogs_urls($base_url, $total_pages, $per_page);
 
-    // Extract URLs from the array
-    // $next_url = isset($pagination['urls']['next']) ? $pagination['urls']['next'] : '';
-    // $last_url = isset($pagination['urls']['last']) ? $pagination['urls']['last'] : '';
-    $first_url = current($urls);
-    $last_url = end($urls);
-    
+    // Add total_pages to the URLs array for reference
+    $urls['total_pages'] = $total_pages;
 
     // Return URLs as an array
-    return [
-        'urls' => $urls,
-        'first_url' => $first_url,
-        'last_url' => $last_url
-    ];
+    return $urls;
 }
 
 function generate_discogs_urls($base_url, $total_pages, $per_page) {
     $urls = [];
 
     for ($page = 1; $page <= $total_pages; $page++) {
-        $url = $base_url . "?page={$page}&per_page={$per_page}";
-        $urls[] = $url;
+        $urls[] = esc_url(admin_url("admin.php?page=d2w_page&paged={$page}"));
     }
 
     return $urls;
 }
+
 
 
 // Function to display content for the menu page
@@ -372,7 +360,8 @@ function d2w_page_content() {
     echo '<h1>Welcome to Discogs to WooCommerce</h1>';
 
     // Fetch and process listings
-    $products = return_listings();
+    $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
+    $products = return_listings($current_page);
 
     // Debug: Check if products are fetched
     if (empty($products)) {
@@ -396,31 +385,33 @@ function d2w_page_content() {
     echo '</div>';
     echo '</form>';
 
-    /* end of listings */
+    /* End of listings */
 
     /* Start of pagination */
     // Capture returned pagination URLs
-    $pagination_urls = return_pagination();
-
-    // var_dump($pagination_urls);
-    // die();
-
-    // Extract URLs from the captured array
-    // $next_url = isset($pagination_urls['next_url']) ? $pagination_urls['next_url'] : '';
-    // $last_url = isset($pagination_urls['last_url']) ? $pagination_urls['last_url'] : '';
+    $pagination_urls = return_pagination($current_page);
 
     // Output pagination buttons HTML
     echo '<div class="pagination-buttons">';
 
+    // Display First link if available
+    if ($current_page > 1) {
+        echo '<a href="' . esc_url(admin_url("admin.php?page=d2w_page&paged=1")) . '" class="pagination-button">First</a>';
+    }
+
     // Display Previous link if available
-    if (!empty($last_url)) {
-        echo '<a href="' . esc_url($last_url) . '" class="pagination-button">First</a>';
+    if ($current_page > 1) {
+        echo '<a href="' . esc_url(admin_url("admin.php?page=d2w_page&paged=" . ($current_page - 1))) . '" class="pagination-button">Previous</a>';
     }
 
     // Display Next link if available
-    if (!empty($next_url)) {
-        $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
-        echo '<a href="' . esc_url(add_query_arg('paged', $current_page + 1)) . '" class="pagination-button">Next</a>';
+    if ($current_page < $pagination_urls['total_pages']) {
+        echo '<a href="' . esc_url(admin_url("admin.php?page=d2w_page&paged=" . ($current_page + 1))) . '" class="pagination-button">Next</a>';
+    }
+
+    // Display Last link if available
+    if ($current_page < $pagination_urls['total_pages']) {
+        echo '<a href="' . esc_url(admin_url("admin.php?page=d2w_page&paged=" . $pagination_urls['total_pages'])) . '" class="pagination-button">Last</a>';
     }
 
     echo '</div>';
@@ -428,5 +419,8 @@ function d2w_page_content() {
 
     echo '</div>';
 }
+
+
+
 
 
