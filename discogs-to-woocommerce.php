@@ -314,12 +314,13 @@ function return_listings($page = 1) {
         }
     }
 
+    // MAKE THIS DYNAMIC - FETCH FROM DATA
     $per_page = 50;
 
     // Return only the subset of data for the current page
-    return array_slice($products, ($page - 1) * $per_page, $per_page);
+    // return array_slice($products, ($page - 1) * $per_page, $per_page);
 
-    // return $products;
+    return $products;
 }
 
 
@@ -388,7 +389,6 @@ function d2w_page_content() {
     $table->prepare_items();
 
     // Display top of the table nav / bulk actions
-    // echo '<form method="get" action="">';
     echo '<form method="post" action="">';
 
     // Render Discogs listings table
