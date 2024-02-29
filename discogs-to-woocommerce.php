@@ -16,7 +16,6 @@ Domain Path:  /
 add_action('process_bulk_action', 'handle_bulk_action');
 add_action('admin_post_process_bulk_action', 'register_discogs_bulk_action');
 add_action('admin_init', 'register_discogs_bulk_action');
-// Hook into the admin menu action
 add_action('admin_menu', 'd2w_menu');
 
 // Function to remove "(NUMBER)"
@@ -45,9 +44,37 @@ function register_discogs_bulk_action() {
     }
 }
 
+// resolve image from Discogs URL
+function d2w_insert_product_image($image_url, $product_id) {
+    $image_name = sanitize_file_name(basename($image_url));
+
+    // Download the image to the uploads directory
+    $image_path = download_url($image_url);
+
+    // Check for download errors
+    if (is_wp_error($image_path)) {
+        // Handle error (e.g., log error, display message)
+        return false;
+    }
+
+    $file_array = array(
+        'name'     => $image_name,
+        'tmp_name' => $image_path,
+    );
+
+    // Insert the image into the media library
+    $image_id = media_handle_sideload($file_array, $product_id, $image_name);
+
+    // Check for media handle sideload errors
+    if (is_wp_error($image_id)) {
+        // Handle error (e.g., log error, display message)
+        return false;
+    }
+
+    return $image_id;
+}
+
 function handle_bulk_action($draft) {
-    
-    
     // Check if the form has been submitted and products are selected
     if (isset($_POST['product']) && !empty($_POST['product'])) {
 
@@ -70,12 +97,8 @@ function handle_bulk_action($draft) {
             });
 
             if (!empty($selected_product)) {
-
                 // Since array_filter returns an array, we pick the first (and only) item
                 $selected_product = reset($selected_product);
-
-                // Use wc_insert_product instead of wc_create_product
-                // $new_product_id = wc_insert_product($new_product_data);
 
                 // Establish the product data
                 $new_product_data = array(
@@ -99,6 +122,13 @@ function handle_bulk_action($draft) {
                 if ($product_id) {
                     update_post_meta($product_id, '_price', $new_product_data['regular_price']);
                     // Add more meta data as needed
+
+                    // Add product image
+                    $image_url = '';
+                    $image_id = d2w_insert_product_image($image_url, $product_id);
+
+                    // Set the product thumbnail
+                    set_post_thumbnail($product_id, $image_id);
                 }
 
                 // Set product type to 'simple'
@@ -123,12 +153,11 @@ function handle_bulk_action($draft) {
         // Redirect to the import results page
         wp_redirect(admin_url('admin.php?page=d2w_import_results_page'));
         exit;
-
-        
     } else {
         print_r("ERROR - POST variable is empty!");
     }
 }
+
 
 
 
@@ -205,7 +234,9 @@ function d2w_import_results_page_content() {
 function fetch_discogs($page = 1) {
     // variables
     $discogs_user = "DeckHeadRecords";
-    $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}";
+    $discogs_key = "xbpDqPWaKUCzSnmCmqXW";
+    $discogs_secret = "TxZspQfcCJTdeiZnGixOkTfozHSDpeIC";
+    $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
 
     $discogs_info["account_info"] = array($discogs_user, $api_url);
 
@@ -241,6 +272,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
     public function get_columns() {
         return [
             'cb' => '<input type="checkbox" />',
+            'thumbnail' => 'Thumbnail',
             'artist' => 'Artist',
             'title' => 'Title',
             'comments' => 'Comments',
@@ -281,11 +313,22 @@ class Discogs_Product_List_Table extends WP_List_Table {
         }
     }
     
+    public function column_thumbnail($item) {
+        $thumbnail_url = isset($item['image_thumb']) ? $item['image_thumb'] : '';
+    
+        if (!empty($thumbnail_url)) {
+            return '<img src="' . esc_url($thumbnail_url) . '" alt="Thumbnail" width="50" height="50" />';
+        }
+    
+        return '';  // or handle appropriately if thumbnail URL doesn't exist
+    }
     
     
     // define what each column in the table displays
     public function column_default($item, $column_name) {
         switch ($column_name) {
+            case 'thumbnail':
+                return $this->column_thumbnail($item); // Call the new function for the thumbnail column
             case 'artist':
             case 'title':
             case 'comments':
@@ -323,7 +366,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
 function return_listings($page = 1) {
     $data = fetch_discogs($page);
 
-    // Initialize an empty array to store products
+    // Initialise an empty array to store products
     $products = [];
 
     // Check if 'listings' key exists in $data and if it's an array
@@ -331,8 +374,21 @@ function return_listings($page = 1) {
         
         // Iterate through each listing in $data['listings']
         foreach ($data['listings'] as $listing) {
+
+            // Initialise an empty array to store product images per listing
+            $images = [];
+
+            // Iterate through each listing's images and add to images array
+            foreach ($listing['release']['images'] as $image) {
+                $images[] = $image;
+                $full_scale = isset($image['uri']) ? $image['uri'] : '';
+                $thumbnail = isset($image['uri150']) ? $image['uri150'] : '';
+            }
+         
             // Ensure the necessary nested keys exist and provide defaults if they don't
             $id = isset($listing['id']) ? $listing['id'] : '';
+            $image_main = isset($images[0]['uri']) ? $images[0]['uri'] : '';
+            $image_thumb = isset($images[0]['uri150']) ? $images[0]['uri150'] : '';
             $artist = isset($listing['release']['artist']) ? clean_artist_name($listing['release']['artist']) : '';
             $title = isset($listing['release']['title']) ? $listing['release']['title'] : '';
             $comments = isset($listing['comments']) ? $listing['comments'] : '';
@@ -342,6 +398,9 @@ function return_listings($page = 1) {
             // Construct the product array with the values (either from the listing or defaults)
             $product = [
                 'id' => $id,
+                'images' => $images,
+                'image_main' => $image_main,
+                'image_thumb' => $image_thumb,
                 'artist' => $artist,
                 'title' => $title,
                 'comments' => $comments,
