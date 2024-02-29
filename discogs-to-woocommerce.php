@@ -45,33 +45,34 @@ function register_discogs_bulk_action() {
 }
 
 // resolve image from Discogs URL
-function d2w_insert_product_image($image_url, $product_id) {
-    $image_name = sanitize_file_name(basename($image_url));
-
-    // Download the image to the uploads directory
-    $image_path = download_url($image_url);
+function d2w_insert_product_image($full_scale_image_url, $product_id) {
+    // Download the full-scale image to the uploads directory
+    $full_scale_image_path = download_url($full_scale_image_url);
 
     // Check for download errors
-    if (is_wp_error($image_path)) {
+    if (is_wp_error($full_scale_image_path)) {
         // Handle error (e.g., log error, display message)
         return false;
     }
 
     $file_array = array(
-        'name'     => $image_name,
-        'tmp_name' => $image_path,
+        'name'     => sanitize_file_name(basename($full_scale_image_url)),
+        'tmp_name' => $full_scale_image_path,
     );
 
-    // Insert the image into the media library
-    $image_id = media_handle_sideload($file_array, $product_id, $image_name);
+    // Insert the full-scale image into the media library
+    $full_scale_image_id = media_handle_sideload($file_array, $product_id, $file_array['name']);
 
     // Check for media handle sideload errors
-    if (is_wp_error($image_id)) {
+    if (is_wp_error($full_scale_image_id)) {
         // Handle error (e.g., log error, display message)
         return false;
     }
 
-    return $image_id;
+    // Set the full-scale image as the product thumbnail
+    set_post_thumbnail($product_id, $full_scale_image_id);
+
+    return $full_scale_image_id;
 }
 
 function handle_bulk_action($draft) {
@@ -123,9 +124,8 @@ function handle_bulk_action($draft) {
                     update_post_meta($product_id, '_price', $new_product_data['regular_price']);
                     // Add more meta data as needed
 
-                    // Add product image
-                    $image_url = '';
-                    $image_id = d2w_insert_product_image($image_url, $product_id);
+                    $image_url_full_scale = $selected_product['images'][0]['uri'];  // Assuming the full-scale image URL is the first in the images array
+                    $image_id = d2w_insert_product_image($image_url_full_scale, $product_id);
 
                     // Set the product thumbnail
                     set_post_thumbnail($product_id, $image_id);
@@ -234,8 +234,7 @@ function d2w_import_results_page_content() {
 function fetch_discogs($page = 1) {
     // variables
     $discogs_user = "DeckHeadRecords";
-    $discogs_key = "xbpDqPWaKUCzSnmCmqXW";
-    $discogs_secret = "TxZspQfcCJTdeiZnGixOkTfozHSDpeIC";
+
     $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
 
     $discogs_info["account_info"] = array($discogs_user, $api_url);
