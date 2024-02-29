@@ -12,11 +12,81 @@ Text Domain:  discogs-to-woocommerce
 Domain Path:  /
 */
 
+
+
+// Define the callback function for the menu page
+function d2w_settings_page() {
+    ?>
+    <div class="wrap">
+        <h2>Discogs to WooCommerce Settings</h2>
+        <form method="post" action="options.php">
+            <?php
+            // Output nonce, action, and option_page fields for a settings page
+            settings_fields('d2w_options');
+            // Output the settings sections and their fields
+            do_settings_sections('d2w-settings');
+            // Output submit button
+            submit_button();
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
+// Define a function to initialize and register the settings
+function d2w_settings_init() {
+    // Register a setting and its sanitization callback
+    register_setting('d2w_options', 'd2w_api_key', 'd2w_sanitize_text_field');
+    register_setting('d2w_options', 'd2w_api_secret', 'd2w_sanitize_text_field');
+
+    // Add a section to the settings page
+    add_settings_section(
+        'd2w_section',
+        'API Settings',
+        'd2w_section_callback',
+        'd2w-settings'
+    );
+
+    // Add fields to the section
+    add_settings_field(
+        'd2w_api_key',
+        'API Key',
+        'd2w_api_key_callback',
+        'd2w-settings',
+        'd2w_section'
+    );
+
+    add_settings_field(
+        'd2w_api_secret',
+        'API Secret',
+        'd2w_api_secret_callback',
+        'd2w-settings',
+        'd2w_section'
+    );
+}
+
+// Callback function for API Key field
+function d2w_section_callback() {
+    echo '<p>Please add your Discogs API key and secret here in order to fetch product images. You can find these at: <a href="https://www.discogs.com/settings/developers">https://www.discogs.com/settings/developers</a></p>';
+}
+
+function d2w_api_key_callback() {
+    $option = get_option('d2w_api_key');
+    echo '<input type="text" id="d2w_api_key" name="d2w_api_key" value="' . esc_attr($option) . '" />';
+}
+
+// Callback function for API Secret field
+function d2w_api_secret_callback() {
+    $option = get_option('d2w_api_secret');
+    echo '<input type="text" id="d2w_api_secret" name="d2w_api_secret" value="' . esc_attr($option) . '" />';
+}
+
 // Add actions
 add_action('process_bulk_action', 'handle_bulk_action');
 add_action('admin_post_process_bulk_action', 'register_discogs_bulk_action');
 add_action('admin_init', 'register_discogs_bulk_action');
 add_action('admin_menu', 'd2w_menu');
+add_action('admin_init', 'd2w_settings_init');
 
 // Function to remove "(NUMBER)"
 function clean_artist_name($text) {
@@ -193,6 +263,15 @@ function d2w_submenu_page() {
         'd2w_import_results_page',       // Menu slug
         'd2w_import_results_page_content' // Callback function to display content
     );
+
+    add_submenu_page(
+        'd2w_page',                    // Parent slug
+        'D2W Settings',                // Page title
+        'Settings',                    // Menu title
+        'manage_options',              // Capability
+        'd2w-settings',                // Menu slug
+        'd2w_settings_page'           // Callback function to display content
+    );
 }
 
 // Callback function to display content for the import results page
@@ -230,9 +309,9 @@ function d2w_import_results_page_content() {
 function fetch_discogs($page = 1) {
     // variables
     $discogs_user = "DeckHeadRecords";
-    $discogs_key = "";
-    $discogs_secret = "";
-
+    $discogs_key = get_option('d2w_api_key');
+    $discogs_secret = get_option('d2w_api_secret');
+    
     if ($discogs_key || $discogs_secret) {
         $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
     } else {
@@ -531,8 +610,3 @@ function d2w_page_content() {
 
     echo '</div>';
 }
-
-
-
-
-
