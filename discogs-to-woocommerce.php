@@ -158,9 +158,6 @@ function handle_bulk_action($draft) {
     }
 }
 
-
-
-
 // Enqueue admin styles
 function custom_enqueue_admin_styles() {
     wp_enqueue_style('wp-lists');
@@ -199,7 +196,6 @@ function d2w_submenu_page() {
 }
 
 // Callback function to display content for the import results page
-// Callback function to display content for the import results page
 function d2w_import_results_page_content() {
     // Ensure the session is started
     if (!session_id()) {
@@ -234,8 +230,15 @@ function d2w_import_results_page_content() {
 function fetch_discogs($page = 1) {
     // variables
     $discogs_user = "DeckHeadRecords";
+    $discogs_key = "";
+    $discogs_secret = "";
 
-    $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
+    if ($discogs_key || $discogs_secret) {
+        $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
+    } else {
+        $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}";
+    }
+    
 
     $discogs_info["account_info"] = array($discogs_user, $api_url);
 
