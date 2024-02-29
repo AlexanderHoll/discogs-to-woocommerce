@@ -47,6 +47,7 @@ function register_discogs_bulk_action() {
 
 function handle_bulk_action($draft) {
     
+    
     // Check if the form has been submitted and products are selected
     if (isset($_POST['product']) && !empty($_POST['product'])) {
 
@@ -116,20 +117,14 @@ function handle_bulk_action($draft) {
             }
         }
 
-        // Display the result messages within the WordPress admin area
-        echo '<div class="wrap">';
-        echo '<h1 class="wp-heading-inline">Import Results</h1>';
+        // Store result messages in the session
+        $_SESSION['discogs_result_messages'] = $result_messages;
 
-        foreach ($result_messages as $message) {
-            echo "<p>" . esc_html($message) . "</p>";
-        }
-
-        // Add a link back to the main plugin page
-        $plugin_page_url = admin_url('admin.php?page=d2w_page'); // Replace 'd2w_page' with the actual slug of your plugin page
-        echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
-        echo '</div>';
-
+        // Redirect to the import results page
+        wp_redirect(admin_url('admin.php?page=d2w_import_results_page'));
         exit;
+
+        
     } else {
         print_r("ERROR - POST variable is empty!");
     }
@@ -160,6 +155,51 @@ function d2w_menu() {
         99                                  // Position (Optional)
     );
 }
+
+// Add submenu page
+add_action('admin_menu', 'd2w_submenu_page');
+function d2w_submenu_page() {
+    add_submenu_page(
+        'd2w_page',                      // Parent slug
+        'Import Results',                // Page title
+        'Import Results',                // Menu title
+        'manage_options',                // Capability
+        'd2w_import_results_page',       // Menu slug
+        'd2w_import_results_page_content' // Callback function to display content
+    );
+}
+
+// Callback function to display content for the import results page
+// Callback function to display content for the import results page
+function d2w_import_results_page_content() {
+    // Ensure the session is started
+    if (!session_id()) {
+        session_start();
+    }
+
+    echo '<div class="wrap">';
+    echo '<h1>Import Results</h1>';
+
+    // Fetch and display result messages
+    if (isset($_SESSION['discogs_result_messages']) && !empty($_SESSION['discogs_result_messages'])) {
+        $result_messages = $_SESSION['discogs_result_messages'];
+
+        foreach ($result_messages as $message) {
+            echo "<p>" . esc_html($message) . "</p>";
+        }
+
+        // Clear the result messages from the session after displaying
+        unset($_SESSION['discogs_result_messages']);
+    } else {
+        echo '<p>No import results to display.</p>';
+    }
+
+    // Add a link back to the main plugin page
+    $plugin_page_url = admin_url('admin.php?page=d2w_page');
+    echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
+    echo '</div>';
+}
+
 
 // make api call, fetch data from discogs
 function fetch_discogs($page = 1) {
