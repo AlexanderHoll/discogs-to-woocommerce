@@ -2,7 +2,7 @@
 /*
 Plugin Name:  Discogs to Woocommerce
 Plugin URI:   https://www.alexanderhollingworth.co.uk
-Description:  A plugin that intends to fetch the Deckheads seller inventory and allow to import these products as Woocommerce products
+Description:  A plugin that intends to fetch a Discogs seller inventory and allow to import these products as Woocommerce products
 Version:      1.0
 Author:       Alexander Hollingworth
 Author URI:   https://www.alexanderhollingworth.co.uk
@@ -33,11 +33,14 @@ function d2w_settings_page() {
     <?php
 }
 
-// Define a function to initialize and register the settings
+// Update the d2w_settings_init function
 function d2w_settings_init() {
-    // Register a setting and its sanitization callback
+    // Register a setting and its sanitization callback for API Key
     register_setting('d2w_options', 'd2w_api_key', 'd2w_sanitize_text_field');
+    // Register a setting and its sanitization callback for API Secret
     register_setting('d2w_options', 'd2w_api_secret', 'd2w_sanitize_text_field');
+    // Register a setting and its sanitization callback for Discogs Username
+    register_setting('d2w_options', 'd2w_discogs_username', 'd2w_sanitize_text_field');
 
     // Add a section to the settings page
     add_settings_section(
@@ -63,6 +66,21 @@ function d2w_settings_init() {
         'd2w-settings',
         'd2w_section'
     );
+
+    // Add a new field for Discogs Username
+    add_settings_field(
+        'd2w_discogs_username',
+        'Discogs Username',
+        'd2w_discogs_username_callback',
+        'd2w-settings',
+        'd2w_section'
+    );
+}
+
+// Callback function for Discogs Username field
+function d2w_discogs_username_callback() {
+    $option = get_option('d2w_discogs_username');
+    echo '<input type="text" id="d2w_discogs_username" name="d2w_discogs_username" value="' . esc_attr($option) . '" />';
 }
 
 // Callback function for API Key field
@@ -308,7 +326,7 @@ function d2w_import_results_page_content() {
 // make api call, fetch data from discogs
 function fetch_discogs($page = 1) {
     // variables
-    $discogs_user = "DeckHeadRecords";
+    $discogs_user = get_option('d2w_discogs_username');
     $discogs_key = get_option('d2w_api_key');
     $discogs_secret = get_option('d2w_api_secret');
     
