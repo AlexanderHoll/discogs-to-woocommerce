@@ -210,6 +210,10 @@ function handle_bulk_action($draft) {
                 // Add product meta data
                 if ($product_id) {
                     update_post_meta($product_id, '_price', $new_product_data['regular_price']);
+                    update_post_meta($product_id, '_manage_stock', 'yes'); // Enable stock management
+                    update_post_meta($product_id, '_stock_status', 'instock'); // Set stock status to in stock
+                    update_post_meta($product_id, '_stock', 1); // Set initial stock quantity to 1
+
                     // Add more meta data as needed
 
                     $image_url_full_scale = $selected_product['images'][0]['uri'];  // Assuming the full-scale image URL is the first in the images array
@@ -245,6 +249,7 @@ function handle_bulk_action($draft) {
         print_r("ERROR - POST variable is empty!");
     }
 }
+
 
 // Enqueue admin styles
 function custom_enqueue_admin_styles() {
