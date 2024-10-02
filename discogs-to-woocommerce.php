@@ -159,36 +159,6 @@ function handle_bulk_action($draft) {
     }
 }
 
-// Callback function to display content for the import results page
-function d2w_import_results_page_content() {
-    // Ensure the session is started
-    if (!session_id()) {
-        session_start();
-    }
-
-    echo '<div class="wrap">';
-    echo '<h1>Import Results</h1>';
-
-    // Fetch and display result messages
-    if (isset($_SESSION['discogs_result_messages']) && !empty($_SESSION['discogs_result_messages'])) {
-        $result_messages = $_SESSION['discogs_result_messages'];
-
-        foreach ($result_messages as $message) {
-            echo "<p>" . esc_html($message) . "</p>";
-        }
-
-        // Clear the result messages from the session after displaying
-        unset($_SESSION['discogs_result_messages']);
-    } else {
-        echo '<p>No import results to display.</p>';
-    }
-
-    // Add a link back to the main plugin page
-    $plugin_page_url = admin_url('admin.php?page=d2w_page');
-    echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
-    echo '</div>';
-}
-
 // create a custom class for the table
 class Discogs_Product_List_Table extends WP_List_Table {
 
