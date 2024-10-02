@@ -14,20 +14,12 @@ Domain Path:  /
 
 // Main plugin file adjustments (if needed)
 require_once plugin_dir_path(__FILE__) . 'includes/admin-menu.php';
+require_once plugin_dir_path(__FILE__) . 'includes/helpers.php';
 
 // Add actions
 add_action('process_bulk_action', 'handle_bulk_action');
 add_action('admin_post_process_bulk_action', 'register_discogs_bulk_action');
 add_action('admin_init', 'register_discogs_bulk_action');
-
-
-// Function to remove "(NUMBER)"
-function clean_artist_name($text) {
-    // Remove numbers in brackets using regular expression
-    $cleaned_text = preg_replace('/\(\d+\)/', '', $text);
-
-    return $cleaned_text;
-}
 
 function register_discogs_bulk_action() {
     // Check if 'insert_as_product' action is set in the request
@@ -164,20 +156,6 @@ function handle_bulk_action($draft) {
         print_r("ERROR - POST variable is empty!");
     }
 }
-
-
-// Enqueue admin styles
-function custom_enqueue_admin_styles() {
-    wp_enqueue_style('wp-lists');
-}
-add_action('admin_enqueue_scripts', 'custom_enqueue_admin_styles');
-
-// Include WP_List_Table class
-if (!class_exists('WP_List_Table')) {
-    require_once(ABSPATH . 'wp-admin/includes/class-wp-list-table.php');
-}
-
-
 
 // Callback function to display content for the import results page
 function d2w_import_results_page_content() {
