@@ -15,6 +15,7 @@ Domain Path:  /
 // Main plugin file adjustments (if needed)
 require_once plugin_dir_path(__FILE__) . 'includes/admin-menu.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers.php';
+require_once plugin_dir_path(__FILE__) . 'includes/api.php';
 
 // Add actions
 add_action('process_bulk_action', 'handle_bulk_action');
@@ -185,38 +186,6 @@ function d2w_import_results_page_content() {
     $plugin_page_url = admin_url('admin.php?page=d2w_page');
     echo '<p><a href="' . esc_url($plugin_page_url) . '">Back to Product List</a></p>';
     echo '</div>';
-}
-
-
-// make api call, fetch data from discogs
-function fetch_discogs($page = 1) {
-    // variables
-    $discogs_user = get_option('d2w_discogs_username');
-    $discogs_key = get_option('d2w_api_key');
-    $discogs_secret = get_option('d2w_api_secret');
-    
-    if ($discogs_key || $discogs_secret) {
-        $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}&key={$discogs_key}&secret={$discogs_secret}";
-    } else {
-        $api_url = "https://api.discogs.com/users/{$discogs_user}/inventory?page={$page}";
-    }
-    
-
-    $discogs_info["account_info"] = array($discogs_user, $api_url);
-
-    // Fetch API data
-    $response = wp_remote_get($api_url);
-
-    if (is_wp_error($response)) {
-        // Handle error (e.g., log error, display message)
-        return;
-    }
-
-    $body = wp_remote_retrieve_body($response);
-    $data = json_decode($body, true);  // Decode JSON data
-    array_push($data, $discogs_info);
-
-    return $data;
 }
 
 // create a custom class for the table
