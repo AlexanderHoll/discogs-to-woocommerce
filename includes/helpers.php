@@ -1,11 +1,5 @@
 <?php
 
-// Enqueue admin styles
-function custom_enqueue_admin_styles() {
-    wp_enqueue_style('wp-lists');
-}
-add_action('admin_enqueue_scripts', 'custom_enqueue_admin_styles');
-
 // Include WP_List_Table class
 if (!class_exists('WP_List_Table')) {
     require_once(ABSPATH . 'wp-admin/includes/class-wp-list-table.php');
