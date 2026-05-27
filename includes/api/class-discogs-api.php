@@ -4,7 +4,7 @@ class D2W_Discogs_API {
 
     private static $cache = [];
 
-    private static function auth_args() {
+    private static function auth_args(): array {
         $token = get_option('d2w_user_token');
         if (!$token) {
             return [];
@@ -17,9 +17,6 @@ class D2W_Discogs_API {
         ];
     }
 
-    public static function fetch($page = 1) {
-        if (isset(self::$cache[$page])) {
-            return self::$cache[$page];
     public static function fetch($page = 1, $args = []) {
         $cache_key = $page . '_' . md5(serialize($args));
 
@@ -34,7 +31,8 @@ class D2W_Discogs_API {
 
         $params = ['page' => $page, 'per_page' => $args['per_page'] ?? 50];
 
-        if ($key || $secret) {
+        // Key/secret only used when no token is set — token auth gives 60 req/min vs 25.
+        if (!$token && ($key || $secret)) {
             $params['key']    = $key;
             $params['secret'] = $secret;
         }
@@ -46,17 +44,10 @@ class D2W_Discogs_API {
         }
         if (!empty($args['status'])) {
             $params['status'] = $args['status'];
-        // Use key/secret query params only when no token is set (token auth takes precedence
-        // and raises the rate limit from 25 to 60 req/min).
-        $params = "page={$page}";
-        if (!$token && ($key || $secret)) {
-            $params .= "&key={$key}&secret={$secret}";
         }
 
-        $url      = "https://api.discogs.com/users/{$user}/inventory?{$params}";
-        $response = wp_remote_get($url, self::auth_args());
         $url      = "https://api.discogs.com/users/{$user}/inventory?" . http_build_query($params);
-        $response = wp_remote_get($url);
+        $response = wp_remote_get($url, self::auth_args());
 
         if (is_wp_error($response)) {
             return null;
@@ -65,7 +56,6 @@ class D2W_Discogs_API {
         $data                 = json_decode(wp_remote_retrieve_body($response), true);
         $data['account_info'] = [$user, $url];
 
-        self::$cache[$page] = $data;
         self::$cache[$cache_key] = $data;
 
         return $data;
@@ -86,7 +76,6 @@ class D2W_Discogs_API {
         $code = wp_remote_retrieve_response_code($response);
 
         if ($code === 404) {
-            // Listing removed or never existed — treat as sold/unavailable.
             return 'Not Found';
         }
 
