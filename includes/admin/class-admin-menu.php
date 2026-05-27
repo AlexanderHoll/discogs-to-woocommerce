@@ -27,6 +27,15 @@ class D2W_Admin_Menu {
             [__CLASS__, 'render_settings']
         );
 
+        add_submenu_page(
+            'd2w_page',
+            'Field Mapping',
+            'Field Mapping',
+            'manage_options',
+            'd2w-field-mapping',
+            [D2W_Field_Mapping_Page::class, 'render_page']
+        );
+
         // Hidden page for import results (no parent = not shown in nav).
         add_submenu_page(
             null,
