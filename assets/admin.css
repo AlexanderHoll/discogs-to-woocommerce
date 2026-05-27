@@ -1,0 +1,126 @@
+/* =========================================================
+   Filter bar
+   ========================================================= */
+
+.d2w-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 8px;
+    flex-wrap: wrap;
+}
+
+.d2w-filter-bar__search input[type="search"] {
+    min-width: 220px;
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid #8c8f94;
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 30px;
+}
+
+.d2w-filter-bar__form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.d2w-filter-bar__form select {
+    height: 30px;
+    font-size: 13px;
+}
+
+/* =========================================================
+   Table tweaks
+   ========================================================= */
+
+.d2w-thumb {
+    display: block;
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.d2w-thumb--empty {
+    background: #f0f0f1;
+}
+
+.column-thumbnail { width: 60px; }
+.column-year      { width: 52px; }
+.column-format    { width: 70px; }
+.column-media_condition,
+.column-sleeve_condition { width: 90px; font-size: 12px; }
+.column-value     { width: 80px; }
+.column-imported  { width: 90px; }
+
+/* =========================================================
+   Condition colour coding
+   ========================================================= */
+
+.d2w-condition {
+    display: inline-block;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f0f0f1;
+    color: #3c434a;
+    white-space: nowrap;
+}
+
+.d2w-condition--m,
+.d2w-condition--nm  { background: #d7f7e3; color: #00603c; }
+.d2w-condition--vgp { background: #e8f5e2; color: #2d6a0e; }
+.d2w-condition--vg  { background: #fef9e6; color: #7a5800; }
+.d2w-condition--gp,
+.d2w-condition--g   { background: #fde8d7; color: #a03800; }
+.d2w-condition--f,
+.d2w-condition--p   { background: #fce4e4; color: #8a1a1a; }
+
+/* =========================================================
+   Imported badge
+   ========================================================= */
+
+.d2w-badge--imported {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #d7f7e3;
+    color: #00603c;
+    white-space: nowrap;
+}
+
+/* =========================================================
+   Muted placeholder
+   ========================================================= */
+
+.d2w-muted {
+    color: #a7aaad;
+}
+
+/* =========================================================
+   Pagination
+   ========================================================= */
+
+.d2w-pagination {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 20px;
+    flex-wrap: wrap;
+}
+
+.d2w-pagination__info {
+    color: #646970;
+    font-size: 13px;
+}
+
+.d2w-pagination__links {
+    display: flex;
+    gap: 4px;
+}

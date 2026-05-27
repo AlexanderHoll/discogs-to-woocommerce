@@ -27,6 +27,7 @@ register_deactivation_hook(__FILE__, ['D2W_Discogs_Sync', 'unschedule']);
 
 add_action('admin_enqueue_scripts', function () {
     wp_enqueue_style('wp-lists');
+    wp_enqueue_style('d2w-admin', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '1.1');
 });
 
 D2W_Admin_Menu::register();
