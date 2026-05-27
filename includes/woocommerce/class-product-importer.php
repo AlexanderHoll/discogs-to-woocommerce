@@ -53,6 +53,7 @@ class D2W_Product_Importer {
             update_post_meta($post_id, '_manage_stock', 'yes');
             update_post_meta($post_id, '_stock_status', 'instock');
             update_post_meta($post_id, '_stock', 1);
+            update_post_meta($post_id, '_discogs_listing_id', $listing_id);
             wp_set_object_terms($post_id, 'simple', 'product_type');
 
             if (!empty($product['images'][0]['uri'])) {

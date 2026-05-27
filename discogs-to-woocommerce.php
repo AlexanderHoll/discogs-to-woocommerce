@@ -12,12 +12,18 @@ Text Domain:  discogs-to-woocommerce
 Domain Path:  /
 */
 
+define('D2W_PLUGIN_FILE', __FILE__);
+
 require_once plugin_dir_path(__FILE__) . 'includes/api/class-discogs-api.php';
 require_once plugin_dir_path(__FILE__) . 'includes/woocommerce/class-product-mapper.php';
 require_once plugin_dir_path(__FILE__) . 'includes/woocommerce/class-product-importer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-list-table.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-import-page.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/class-admin-menu.php';
+require_once plugin_dir_path(__FILE__) . 'includes/sync/class-discogs-sync.php';
+
+register_activation_hook(__FILE__, ['D2W_Discogs_Sync', 'schedule']);
+register_deactivation_hook(__FILE__, ['D2W_Discogs_Sync', 'unschedule']);
 
 add_action('admin_enqueue_scripts', function () {
     wp_enqueue_style('wp-lists');
@@ -25,3 +31,4 @@ add_action('admin_enqueue_scripts', function () {
 
 D2W_Admin_Menu::register();
 D2W_Product_Importer::register_hooks();
+D2W_Discogs_Sync::register();
