@@ -77,6 +77,7 @@ class D2W_Discogs_Sync {
         ]);
 
         $marked_sold = 0;
+        $skipped     = 0;
 
         foreach ($post_ids as $post_id) {
             $listing_id = get_post_meta($post_id, '_discogs_listing_id', true);
@@ -88,6 +89,7 @@ class D2W_Discogs_Sync {
 
             // null means the API request failed — skip to avoid false positives.
             if ($status === null) {
+                $skipped++;
                 continue;
             }
 
@@ -105,5 +107,7 @@ class D2W_Discogs_Sync {
 
         update_option('d2w_last_sync', current_time('mysql'));
         update_option('d2w_last_sync_count', $marked_sold);
+        update_option('d2w_last_sync_checked', count($post_ids));
+        update_option('d2w_last_sync_skipped', $skipped);
     }
 }

@@ -77,7 +77,14 @@ class D2W_Admin_Menu {
 
             <?php if (isset($_GET['d2w_synced'])): ?>
                 <div class="notice notice-success is-dismissible">
-                    <p>Sync complete &mdash; <?php echo esc_html(get_option('d2w_last_sync_count', 0)); ?> product(s) marked as sold.</p>
+                    <?php
+                    $sync_checked = (int) get_option('d2w_last_sync_checked', 0);
+                    $sync_sold    = (int) get_option('d2w_last_sync_count', 0);
+                    $sync_skipped = (int) get_option('d2w_last_sync_skipped', 0);
+                    ?>
+                    <p>Sync complete &mdash; checked <strong><?php echo esc_html($sync_checked); ?></strong> product(s),
+                    marked <strong><?php echo esc_html($sync_sold); ?></strong> as sold<?php if ($sync_skipped > 0): ?>,
+                    <strong><?php echo esc_html($sync_skipped); ?></strong> skipped due to API errors (see PHP error log for details)<?php endif; ?>.</p>
                 </div>
             <?php endif; ?>
 
@@ -95,7 +102,11 @@ class D2W_Admin_Menu {
                 <p>
                     <?php if ($last_sync): ?>
                         Last sync ran at <strong><?php echo esc_html($last_sync); ?></strong>
-                        and marked <strong><?php echo esc_html($last_sync_count); ?></strong> product(s) as sold.
+                        &mdash; checked <strong><?php echo esc_html((int) get_option('d2w_last_sync_checked', 0)); ?></strong> product(s),
+                        marked <strong><?php echo esc_html($last_sync_count); ?></strong> as sold<?php
+                        $last_skipped = (int) get_option('d2w_last_sync_skipped', 0);
+                        if ($last_skipped > 0): ?>,
+                        <strong><?php echo esc_html($last_skipped); ?></strong> skipped (API error)<?php endif; ?>.
                     <?php else: ?>
                         No sync has run yet.
                     <?php endif; ?>

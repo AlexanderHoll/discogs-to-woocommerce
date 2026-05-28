@@ -70,16 +70,27 @@ class D2W_Discogs_API {
         $response = wp_remote_get($url, self::auth_args());
 
         if (is_wp_error($response)) {
+            error_log("D2W sync: request failed for listing {$listing_id} — " . $response->get_error_message());
             return null;
         }
 
-        $code = wp_remote_retrieve_response_code($response);
+        $code = (int) wp_remote_retrieve_response_code($response);
 
         if ($code === 404) {
             return 'Not Found';
         }
 
+        if ($code !== 200) {
+            error_log("D2W sync: unexpected HTTP {$code} for listing {$listing_id}");
+            return null;
+        }
+
         $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!is_array($body)) {
+            error_log("D2W sync: could not parse response for listing {$listing_id}");
+            return null;
+        }
+
         return $body['status'] ?? null;
     }
 }
