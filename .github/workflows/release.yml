@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  release:
+    name: Build and publish release
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version matches tag
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          header=$(sed -n 's/^ \* Version:[[:space:]]*//p' discogs-to-woocommerce.php | tr -d '\r')
+          constant=$(sed -n "s/^define('D2W_VERSION', '\([^']*\)');.*/\1/p" discogs-to-woocommerce.php)
+          if [ "$header" != "$version" ] || [ "$constant" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match plugin header ($header) or D2W_VERSION ($constant)"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Build zip
+        # git archive respects export-ignore in .gitattributes.
+        run: git archive --format=zip --prefix=d2w/ -o "d2w-${VERSION}.zip" "$GITHUB_SHA"
+
+      - name: Extract release notes
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || echo "See CHANGELOG.md." > release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "d2w-${VERSION}.zip" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md

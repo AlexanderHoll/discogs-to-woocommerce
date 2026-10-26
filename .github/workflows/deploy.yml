@@ -1,0 +1,87 @@
+name: Deploy
+
+# Uploads the plugin to the live site over SFTP. The host has no shell access,
+# so rsync is not available; lftp mirrors the files over SFTP instead.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-live
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  deploy:
+    name: Deploy to live
+    needs: lint
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy settings
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_KEY DEPLOY_PATH; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository secret $name"
+              exit 1
+            fi
+          done
+          # Guard against mirroring (and deleting) anywhere other than a plugin folder.
+          case "$DEPLOY_PATH" in
+            */wp-content/plugins/?*) ;;
+            *) echo "::error::DEPLOY_PATH must be a folder inside wp-content/plugins"; exit 1 ;;
+          esac
+
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Set up SSH key
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+
+      - name: Upload plugin files
+        run: |
+          # --delete only removes files inside DEPLOY_PATH, and never excluded paths.
+          lftp -u "$DEPLOY_USER," -p "${DEPLOY_PORT:-22}" "sftp://$DEPLOY_HOST" <<EOF
+          set sftp:connect-program "ssh -a -x -i $HOME/.ssh/deploy_key -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          set net:max-retries 2
+          set net:timeout 30
+          mirror --reverse --delete --verbose --parallel=4 \
+            --exclude '^\.git' \
+            --exclude '^README\.md$' \
+            --exclude '^CHANGELOG\.md$' \
+            --exclude '^plugin-notes\.md$' \
+            --exclude '^claude-brief\.md$' \
+            ./ "$DEPLOY_PATH/"
+          bye
+          EOF
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

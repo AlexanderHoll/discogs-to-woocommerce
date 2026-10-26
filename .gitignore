@@ -1,1 +1,11 @@
 /plugin-notes.md
+/claude-brief.md
+.DS_Store
+Thumbs.db
+*.log
+.env
+/dist/
+/node_modules/
+/vendor/
+.vscode/
+.idea/
