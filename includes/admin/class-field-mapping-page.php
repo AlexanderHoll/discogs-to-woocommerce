@@ -1,5 +1,7 @@
 <?php
 
+defined('ABSPATH') || exit;
+
 class D2W_Field_Mapping_Page {
 
     const OPTION_KEY = 'd2w_field_mapping';

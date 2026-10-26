@@ -1,5 +1,7 @@
 <?php
 
+defined('ABSPATH') || exit;
+
 class D2W_Discogs_Sync {
 
     public static function register() {
@@ -87,7 +89,7 @@ class D2W_Discogs_Sync {
 
             $status = D2W_Discogs_API::fetch_listing_status($listing_id);
 
-            // null means the API request failed — skip to avoid false positives.
+            // null means the API request failed; skip to avoid false positives.
             if ($status === null) {
                 $skipped++;
                 continue;

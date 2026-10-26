@@ -1,5 +1,7 @@
 <?php
 
+defined('ABSPATH') || exit;
+
 class D2W_Product_Mapper {
 
     public static function map_listings($page = 1, $args = []) {
@@ -15,6 +17,7 @@ class D2W_Product_Mapper {
 
             $products[] = [
                 'id'               => $listing['id'] ?? '',
+                'release_id'       => $listing['release']['id'] ?? '',
                 'images'           => $images,
                 'image_main'       => $images[0]['uri'] ?? '',
                 'image_thumb'      => $images[0]['uri150'] ?? '',

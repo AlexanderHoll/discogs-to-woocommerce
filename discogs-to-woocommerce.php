@@ -1,45 +1,68 @@
 <?php
-/*
-Plugin Name:  Discogs to Woocommerce
-Plugin URI:   https://www.alexanderhollingworth.co.uk
-Description:  A plugin that intends to fetch a Discogs seller inventory and allow to import these products as Woocommerce products
-Version:      1.0
-Author:       Alexander Hollingworth
-Author URI:   https://www.alexanderhollingworth.co.uk
-License:      GPL2
-License URI:  https://www.gnu.org/licenses/gpl-2.0.html
-Text Domain:  discogs-to-woocommerce
-Domain Path:  /
-*/
+/**
+ * Plugin Name:          Discogs to WooCommerce
+ * Plugin URI:           https://github.com/AlexanderHoll/discogs-to-woocommerce
+ * Description:          Imports a Discogs seller inventory as WooCommerce products and keeps stock in sync with Discogs.
+ * Version:              1.0.0
+ * Requires at least:    6.4
+ * Requires PHP:         8.0
+ * Requires Plugins:     woocommerce
+ * WC requires at least: 8.0
+ * Author:               Alexander Hollingworth
+ * Author URI:           https://www.alexanderhollingworth.co.uk
+ * License:              GPL2
+ * License URI:          https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:          discogs-to-woocommerce
+ */
 
+defined('ABSPATH') || exit;
+
+define('D2W_VERSION', '1.0.0');
 define('D2W_PLUGIN_FILE', __FILE__);
+define('D2W_PATH', plugin_dir_path(__FILE__));
+define('D2W_URL', plugin_dir_url(__FILE__));
 
-require_once plugin_dir_path(__FILE__) . 'includes/api/class-discogs-api.php';
-require_once plugin_dir_path(__FILE__) . 'includes/woocommerce/class-product-mapper.php';
-require_once plugin_dir_path(__FILE__) . 'includes/admin/class-field-mapping-page.php';
-require_once plugin_dir_path(__FILE__) . 'includes/woocommerce/class-product-importer.php';
-require_once plugin_dir_path(__FILE__) . 'includes/admin/class-list-table.php';
-require_once plugin_dir_path(__FILE__) . 'includes/admin/class-import-page.php';
-require_once plugin_dir_path(__FILE__) . 'includes/admin/class-admin-menu.php';
-require_once plugin_dir_path(__FILE__) . 'includes/sync/class-discogs-sync.php';
+require_once D2W_PATH . 'includes/class-logger.php';
+require_once D2W_PATH . 'includes/api/class-discogs-api.php';
+require_once D2W_PATH . 'includes/woocommerce/class-product-mapper.php';
+require_once D2W_PATH . 'includes/admin/class-field-mapping-page.php';
+require_once D2W_PATH . 'includes/woocommerce/class-product-importer.php';
+require_once D2W_PATH . 'includes/admin/class-import-page.php';
+require_once D2W_PATH . 'includes/admin/class-admin-menu.php';
+require_once D2W_PATH . 'includes/sync/class-discogs-sync.php';
 
 register_activation_hook(__FILE__, ['D2W_Discogs_Sync', 'schedule']);
 register_deactivation_hook(__FILE__, ['D2W_Discogs_Sync', 'unschedule']);
 
-add_action('admin_enqueue_scripts', function () {
-    wp_enqueue_style('wp-lists');
-    wp_enqueue_style('d2w-admin', plugin_dir_url(__FILE__) . 'assets/admin.css', [], '1.1');
-});
+add_action('plugins_loaded', 'd2w_boot');
 
-add_action('admin_enqueue_scripts', function () {
-    if (($_GET['page'] ?? '') !== 'd2w-field-mapping') {
+function d2w_boot(): void {
+    if (!class_exists('WooCommerce')) {
+        add_action('admin_notices', static function () {
+            echo '<div class="notice notice-error"><p>' . esc_html__('Discogs to WooCommerce requires WooCommerce to be installed and active.', 'discogs-to-woocommerce') . '</p></div>';
+        });
         return;
     }
-    wp_enqueue_script('d2w-field-mapping', plugin_dir_url(__FILE__) . 'assets/js/field-mapping.js', [], '1.0', true);
-    wp_enqueue_style('d2w-field-mapping-css', plugin_dir_url(__FILE__) . 'assets/css/field-mapping.css', [], '1.0');
-});
 
-D2W_Admin_Menu::register();
-D2W_Product_Importer::register_hooks();
-D2W_Field_Mapping_Page::register();
-D2W_Discogs_Sync::register();
+    D2W_Admin_Menu::register();
+    D2W_Product_Importer::register_hooks();
+    D2W_Field_Mapping_Page::register();
+    D2W_Discogs_Sync::register();
+
+    add_action('admin_enqueue_scripts', 'd2w_enqueue_admin_assets');
+}
+
+function d2w_enqueue_admin_assets(string $hook_suffix): void {
+    $screen = D2W_Admin_Menu::screen_for_hook($hook_suffix);
+    if ($screen === null) {
+        return;
+    }
+
+    wp_enqueue_style('d2w-admin', D2W_URL . 'assets/admin.css', [], D2W_VERSION);
+    wp_enqueue_script('d2w-admin', D2W_URL . 'assets/js/admin.js', [], D2W_VERSION, true);
+
+    if ($screen === 'field-mapping') {
+        wp_enqueue_script('d2w-field-mapping', D2W_URL . 'assets/js/field-mapping.js', [], D2W_VERSION, true);
+        wp_enqueue_style('d2w-field-mapping', D2W_URL . 'assets/css/field-mapping.css', ['d2w-admin'], D2W_VERSION);
+    }
+}

@@ -1,5 +1,7 @@
 <?php
 
+defined('ABSPATH') || exit;
+
 if (!class_exists('WP_List_Table')) {
     require_once ABSPATH . 'wp-admin/includes/class-wp-list-table.php';
 }
@@ -89,16 +91,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
             return self::$imported_ids;
         }
 
-        global $wpdb;
-
-        $rows = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s",
-                '_discogs_listing_id'
-            )
-        );
-
-        self::$imported_ids = array_flip(wp_list_pluck($rows, 'meta_value'));
+        self::$imported_ids = D2W_Product_Importer::get_imported_listing_ids();
 
         return self::$imported_ids;
     }
@@ -131,7 +124,7 @@ class Discogs_Product_List_Table extends WP_List_Table {
         $c = $item['sleeve_condition'];
         return $c
             ? '<span class="d2w-condition" title="' . esc_attr($c) . '">' . esc_html($c) . '</span>'
-            : '<span class="d2w-muted">—</span>';
+            : '<span class="d2w-muted">-</span>';
     }
 
     public function column_value($item): string {
@@ -243,19 +236,6 @@ class Discogs_Product_List_Table extends WP_List_Table {
                 <?php submit_button('Apply', 'secondary', '', false); ?>
             </form>
         </div>
-
-        <script>
-        (function () {
-            var input = document.getElementById('d2w-search');
-            if (!input) return;
-            input.addEventListener('input', function () {
-                var term = this.value.toLowerCase();
-                document.querySelectorAll('#the-list tr').forEach(function (row) {
-                    row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
-                });
-            });
-        })();
-        </script>
         <?php
     }
 }

@@ -1,9 +1,13 @@
 <?php
 
+defined('ABSPATH') || exit;
+
 class D2W_Import_Page {
 
     public static function render_main(): void {
-        $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
+        require_once D2W_PATH . 'includes/admin/class-list-table.php';
+
+        $current_page = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
 
         echo '<div class="wrap">';
         echo '<h1 class="wp-heading-inline">Discogs Inventory</h1>';
@@ -49,7 +53,7 @@ class D2W_Import_Page {
     }
 
     private static function render_pagination(int $current_page, array $filter_args): void {
-        // Re-uses the cached response — no extra HTTP request.
+        // Re-uses the cached response, so no extra HTTP request.
         $data = D2W_Discogs_API::fetch($current_page, $filter_args);
 
         if (!isset($data['pagination'])) {
@@ -72,7 +76,7 @@ class D2W_Import_Page {
 
         echo '<div class="d2w-pagination">';
         printf(
-            '<span class="d2w-pagination__info">Page %d of %d &mdash; %s listings</span>',
+            '<span class="d2w-pagination__info">Page %d of %d (%s listings)</span>',
             $current_page,
             $total_pages,
             number_format($total_items)
