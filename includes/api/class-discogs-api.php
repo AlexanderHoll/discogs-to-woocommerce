@@ -15,7 +15,8 @@ class D2W_Discogs_API {
     private static ?int $remaining = null;
 
     private static function user_agent(): string {
-        return 'DeckheadsD2W/' . D2W_VERSION . ' +https://deckheads-records.co.uk';
+        // Discogs asks for a unique, identifying User-Agent; the site URL tells them who is calling.
+        return 'DiscogsToWooCommerce/' . D2W_VERSION . ' +' . home_url('/');
     }
 
     // Token auth when set (60 req/min), otherwise key/secret (25 req/min), otherwise anonymous.

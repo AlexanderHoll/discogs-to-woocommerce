@@ -1,6 +1,6 @@
 # Discogs to WooCommerce (D2W)
 
-A WordPress plugin that imports a Discogs seller inventory into WooCommerce and keeps stock in sync. Built for [Deckheads Records](https://deckheads-records.co.uk), where Discogs is the main sales channel and therefore the source of truth for stock.
+A WordPress plugin that imports a Discogs seller inventory into WooCommerce and keeps stock in sync. It is aimed at record shops that sell on both Discogs and their own website, and treats Discogs as the source of truth for stock.
 
 ## What it does
 
@@ -102,27 +102,29 @@ define('DISABLE_WP_CRON', true);
 ```
 
 ```
-*/5 * * * * curl -fsS https://deckheads-records.co.uk/wp-cron.php?doing_wp_cron >/dev/null 2>&1
+*/5 * * * * curl -fsS https://example.com/wp-cron.php?doing_wp_cron >/dev/null 2>&1
 ```
 
 In cPanel this goes under **Advanced > Cron Jobs**.
 
 ## Deploying
 
-Every push to `main` runs the **Deploy** workflow: it lints the PHP on 8.0 and 8.3, then uploads the plugin over SFTP to the live site. It can also be run by hand from the Actions tab (**Deploy > Run workflow**).
+This section is for maintainers deploying from a fork of the repository. Site owners can simply install a release zip.
 
-The live host does not allow shell access, so the workflow uses `lftp mirror` over SFTP rather than rsync. It only uploads plugin files (`.git*`, `.github/`, `README.md`, `CHANGELOG.md`, `plugin-notes.md` and `claude-brief.md` are excluded), and only deletes files inside `DEPLOY_PATH` that no longer exist in the repo. It refuses to run if `DEPLOY_PATH` is not inside `wp-content/plugins`.
+Every push to `main` runs the **Deploy** workflow: it lints the PHP on 8.0 and 8.3, then uploads the plugin over SFTP to your site. It can also be run by hand from the Actions tab (**Deploy > Run workflow**). Until the secrets below are set, the workflow stops at its first check without touching any server.
+
+The workflow uses `lftp mirror` over SFTP rather than rsync, so it also works on shared hosting that allows SFTP but no shell access. It only uploads plugin files (`.git*`, `.github/`, `README.md`, `CHANGELOG.md`, `plugin-notes.md` and `claude-brief.md` are excluded), and only deletes files inside `DEPLOY_PATH` that no longer exist in the repo. It refuses to run if `DEPLOY_PATH` is not inside `wp-content/plugins`.
 
 Add these in GitHub under **Settings > Secrets and variables > Actions > New repository secret**:
 
 | Secret | Value |
 | --- | --- |
-| `DEPLOY_HOST` | The server's origin IP or hostname, **not** the Cloudflare-proxied domain (SFTP does not pass through Cloudflare). |
-| `DEPLOY_PORT` | SFTP port (for this host, `21098`). |
-| `DEPLOY_USER` | The cPanel username. |
-| `DEPLOY_KEY` | A private SSH key (OpenSSH format) whose public key is authorised in cPanel > SSH Access. Create a dedicated key for deploys. |
-| `DEPLOY_PATH` | Absolute path to the plugin folder, e.g. `/home/deckgycp/public_html/wp-content/plugins/discogs-to-woocommerce-git` |
-| `DEPLOY_KNOWN_HOSTS` | Optional. The server's host key line(s) (`ssh-keyscan -p 21098 <host>`). Without it the workflow trusts whatever key the server presents on each run. |
+| `DEPLOY_HOST` | The server's hostname or IP. If the site is behind Cloudflare or another proxy, use the origin server, since SFTP does not pass through the proxy. |
+| `DEPLOY_PORT` | SFTP port (defaults to `22`; some shared hosts use a custom port). |
+| `DEPLOY_USER` | The SFTP (e.g. cPanel) username. |
+| `DEPLOY_KEY` | A private SSH key (OpenSSH format) whose public key is authorised on the server (e.g. cPanel > SSH Access). Create a dedicated key for deploys. |
+| `DEPLOY_PATH` | Absolute path to the plugin folder, e.g. `/home/username/public_html/wp-content/plugins/d2w` |
+| `DEPLOY_KNOWN_HOSTS` | Optional. The server's host key line(s) (`ssh-keyscan -p <port> <host>`). Without it the workflow trusts whatever key the server presents on each run. |
 
 The workflow runs in a GitHub environment called `production`. Add required reviewers to that environment (Settings > Environments) if you want to approve each deploy.
 
@@ -132,7 +134,7 @@ The workflow runs in a GitHub environment called `production`. Add required revi
 2. Commit, then tag and push: `git tag v1.1.0 && git push origin v1.1.0`.
 3. The **Release** workflow checks that the tag matches both version numbers, builds `d2w-1.1.0.zip` with `git archive` (files marked `export-ignore` in `.gitattributes` are left out) and attaches it to a GitHub Release.
 
-The zip unpacks to a `d2w/` folder. The live site currently runs the plugin from `discogs-to-woocommerce-git/`, so uploading the zip through WP Admin would install a second copy. Use the deploy workflow for live, or rename the folder first.
+The zip unpacks to a `d2w/` folder. If a site already runs the plugin from a differently named folder, uploading the zip through WP Admin installs a second copy; deactivate and delete the old folder first (settings and product links are kept, since they live in the database).
 
 ## Uninstalling
 

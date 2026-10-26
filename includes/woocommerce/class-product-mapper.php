@@ -56,7 +56,7 @@ class D2W_Product_Mapper {
             'comments'         => $listing['comments'] ?? '',
             'description'      => self::clean_artist_name($listing['release']['description'] ?? ''),
             'value'            => $listing['price']['value'] ?? 0.0,
-            'currency'         => $listing['price']['currency'] ?? 'GBP',
+            'currency'         => $listing['price']['currency'] ?? get_woocommerce_currency(),
             'media_condition'  => $listing['condition'] ?? '',
             'sleeve_condition' => $listing['sleeve_condition'] ?? '',
             'format'           => $listing['format'] ?? '',
