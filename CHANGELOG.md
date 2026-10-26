@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on 
 
 ## [Unreleased]
 
-## [1.1.0] - Unreleased
+## [1.1.0] - 2026-10-26
 
 ### Added
 - Field Mapping screen (restored from the unmerged `field-mapping` branch): drag and drop mapping of Discogs fields to product fields, a title template with click-to-insert tokens and custom meta rows. The field list can be extended with the `d2w_discogs_fields` filter.

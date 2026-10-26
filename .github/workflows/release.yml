@@ -35,9 +35,11 @@ jobs:
 
       - name: Extract release notes
         run: |
+          # Section between "## [VERSION]" and the next "## [" heading (plain string match, no regex).
           awk -v v="$VERSION" '
-            $0 ~ "^## \\[" v "\\]" { found = 1; next }
-            found && /^## \[/ { exit }
+            { sub(/\r$/, "") }
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
             found { print }
           ' CHANGELOG.md > release-notes.md
           [ -s release-notes.md ] || echo "See CHANGELOG.md." > release-notes.md
