@@ -88,8 +88,12 @@ Details of every run (and any API errors) are written to **WooCommerce > Status 
 ### WP-CLI
 
 ```bash
-wp d2w sync            # run a sync now
-wp d2w sync --dry-run  # show what would change, change nothing
+wp d2w sync                  # run a sync now
+wp d2w sync --dry-run        # show what would change, change nothing
+wp d2w link --auto           # link products that carry a CedCommerce listing ID
+wp d2w link                  # list suggested matches (confirm them in WP Admin)
+wp d2w backfill [--limit=N]  # fetch release details + attributes for linked products
+wp d2w fix-prices            # copy the display price into empty regular prices
 ```
 
 ### Reliable scheduling
@@ -106,6 +110,56 @@ define('DISABLE_WP_CRON', true);
 ```
 
 In cPanel this goes under **Advanced > Cron Jobs**.
+
+## Linking existing products and backfilling data
+
+Sync and release data only cover products linked to a Discogs listing (`_discogs_listing_id`). **Discogs to WooCommerce > Link & Backfill** connects products that were added by hand or by another plugin:
+
+1. **Auto-link** products that carry a listing ID from the CedCommerce Discogs plugin (`ced_discogs_discogsitemId`). Sold listings still link, so sync knows they are gone.
+2. **Confirm suggested matches.** Unlinked products are compared with For Sale listings by artist and title (case, punctuation, "the" and Discogs `(2)` suffixes ignored). Titles that differ by a number or a single letter ("Vol 2" / "Vol 3") never match. Exact matches are pre-ticked; nothing links until you confirm. A listing is never linked to two products.
+3. **Backfill** fetches each linked product's release and sets the attributes below. It runs in the background, 10 products a minute, to stay inside the Discogs rate limit.
+4. **Fix missing regular prices** for older products that only have a display price (`_price`).
+
+New imports get the attributes immediately and their release details a moment later (queued through Action Scheduler).
+
+## Data written by D2W
+
+Everything is optional: a product may be linked without release details, and older products may have none of it. Read with fallbacks.
+
+### Product meta
+
+| Key | Format | Set when |
+| --- | --- | --- |
+| `_discogs_listing_id` | Listing ID (string of digits) | Import, link |
+| `_discogs_release_id` | Release ID (string of digits) | Import, link, backfill |
+| `_discogs_last_synced` | Unix timestamp | Import, every sync |
+| `_discogs_linked` | Unix timestamp | Link (not set on D2W imports) |
+| `_d2w_release_fetched` | Unix timestamp; `0` if the last fetch failed | Release fetch |
+| `_d2w_artist` | Artist(s) as Discogs shows them, `(2)` suffixes removed, e.g. `Chase & Status` | Release fetch |
+| `_d2w_title` | Release title | Release fetch |
+| `_d2w_label` | First label name, `(2)` suffix removed | Release fetch |
+| `_d2w_catno` | First label's catalogue number (empty when Discogs says `none`) | Release fetch |
+| `_d2w_country` | Country, e.g. `UK` | Release fetch |
+| `_d2w_genres` | Comma separated, e.g. `Electronic, Hip Hop` | Release fetch |
+| `_d2w_styles` | Comma separated, e.g. `House, Breakbeat` | Release fetch |
+| `_d2w_tracklist` | JSON array of `{"position":"A1","title":"...","duration":"5:32"}`, tracks only (headings and index tracks skipped); `duration` may be empty | Release fetch |
+| `_d2w_sold_on_site` | Unix timestamp, present while a website sale awaits removal from Discogs | Website order |
+
+Field mapping also writes its own custom meta keys (defaults: `_media_condition`, `_sleeve_condition`, `_format`, `_year` with the raw Discogs strings) on D2W imports.
+
+### Global attributes (taxonomies)
+
+All are hidden on the product page by default (`is_visible = false`); themes render them as they like. Native WooCommerce layered-nav filtering works on them (`?filter_format=lp`).
+
+| Taxonomy | Terms (name / slug) | Source |
+| --- | --- | --- |
+| `pa_format` | `LP` / `lp`, `2xLP` / `2xlp` (any count), `12"` / `12-inch`, `10"` / `10-inch`, `7"` / `7-inch`, `CD` / `cd`, `Box Set` / `box-set`, `Cassette` / `cassette`, `Other` / `other`. Multiples of 12", 10" and 7" use the single size | Listing format, e.g. `2xLP, Album, Ltd` |
+| `pa_media_condition` | `M` / `m`, `NM` / `nm`, `VG+` / `vg-plus`, `VG` / `vg`, `G+` / `g-plus`, `G` / `g`, `F` / `f`, `P` / `p` | Listing condition, code from the brackets (`Near Mint (NM or M-)` is `NM`) |
+| `pa_sleeve_condition` | As above, plus `Generic` / `generic`, `No cover` / `no-cover`, `Not graded` / `not-graded` | Listing sleeve condition |
+| `pa_label` | Label name / `sanitize_title` of it | Release, only if the product has no label yet |
+| `pa_cat_no` | Catalogue number / `sanitize_title` of it | Release, only if the product has none yet |
+
+Condition terms carry a sort order (term meta `order`, M first) and the attributes sort by it, so filters list grades best to worst. Sync updates format and condition when a listing changes on Discogs. `pa_label` and `pa_cat_no` existed before D2W and power the `/label/...` archives; D2W never overwrites values already set.
 
 ## Deploying
 

@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is based on 
 
 ## [Unreleased]
 
+## [1.2.0] - Unreleased
+
+### Added
+- **Link & Backfill** admin screen: auto-links products that carry a CedCommerce Discogs listing ID, suggests artist/title matches against the For Sale inventory for confirmation, and shows linking and backfill status.
+- Release details from the Discogs release endpoint saved as `_d2w_artist`, `_d2w_title`, `_d2w_label`, `_d2w_catno`, `_d2w_country`, `_d2w_genres`, `_d2w_styles` and `_d2w_tracklist`, fetched after each import and by the backfill.
+- `pa_format`, `pa_media_condition` and `pa_sleeve_condition` global attributes (created if missing, grades ordered M to P), set on import, link and backfill, and kept up to date by sync.
+- Existing `pa_label` and `pa_cat_no` attributes are filled from the release when a product has none.
+- Background backfill through Action Scheduler, 10 products a minute.
+- Fix for products that only have a display price: their regular price is set from it.
+- WP-CLI: `wp d2w link [--auto] [--dry-run]`, `wp d2w backfill [--limit] [--force] [--dry-run]`, `wp d2w fix-prices [--dry-run]`.
+- README section "Data written by D2W" documenting every meta key and attribute.
+
+### Changed
+- Listing format is read from the embedded release, so `format` is no longer empty for imports.
+- Sync reports a "Details" change when a listing's format or condition attributes need updating.
+
 ## [1.1.0] - 2026-10-26
 
 ### Added
