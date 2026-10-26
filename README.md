@@ -143,7 +143,10 @@ Everything is optional: a product may be linked without release details, and old
 | `_d2w_genres` | Comma separated, e.g. `Electronic, Hip Hop` | Release fetch |
 | `_d2w_styles` | Comma separated, e.g. `House, Breakbeat` | Release fetch |
 | `_d2w_tracklist` | JSON array of `{"position":"A1","title":"...","duration":"5:32"}`, tracks only (headings and index tracks skipped); `duration` may be empty | Release fetch |
+| `_d2w_videos` | JSON array of `{"id":"URytteyfxRM","title":"...","duration":276}`: the release's embeddable YouTube videos in Discogs order, `id` is the YouTube video ID, `duration` in seconds (0 if unknown) | Release fetch |
 | `_d2w_sold_on_site` | Unix timestamp, present while a website sale awaits removal from Discogs | Website order |
+
+With **Fill empty galleries** on (Settings, off by default), a release fetch also downloads the release's images for a product whose gallery is empty: the first image becomes the main image only if the product has none, the rest form the gallery. Products that already have gallery images are never changed.
 
 Field mapping also writes its own custom meta keys (defaults: `_media_condition`, `_sleeve_condition`, `_format`, `_year` with the raw Discogs strings) on D2W imports.
 

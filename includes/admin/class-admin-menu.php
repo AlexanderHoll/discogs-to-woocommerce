@@ -108,6 +108,7 @@ class D2W_Admin_Menu {
             'd2w_sync_prices'         => ['Sync prices', 'Update the WooCommerce regular price when the Discogs price differs.'],
             'd2w_sync_auto_import'    => ['Auto-import new listings', 'Import new For Sale listings as draft products (up to ' . D2W_Discogs_Sync::AUTO_IMPORT_MAX . ' per run).'],
             'd2w_sync_push_to_drafts' => ['Website sales to Discogs', 'When an item sells on the website, set the Discogs listing to Draft. This changes your Discogs listings. Listings are never deleted.'],
+            'd2w_fill_gallery'        => ['Fill empty galleries', 'When release details are fetched (after an import, and by the backfill), a product with no gallery images gets the other Discogs images of its release. Products that already have a gallery are never changed. Images are downloaded into the media library.'],
         ];
         foreach ($toggles as $option => [$label, $description]) {
             register_setting('d2w_options', $option, [

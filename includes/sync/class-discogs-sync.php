@@ -17,6 +17,7 @@ class D2W_Discogs_Sync {
         'd2w_sync_prices'        => '0',
         'd2w_sync_auto_import'   => '0',
         'd2w_sync_push_to_drafts' => '0',
+        'd2w_fill_gallery'       => '0',
     ];
 
     // Product meta set when an imported product sells on the website (see D2W_Order_Sync).

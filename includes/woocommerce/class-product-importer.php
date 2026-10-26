@@ -217,7 +217,7 @@ class D2W_Product_Importer {
     }
 
     // Downloads an image into the media library as "{$name}.{ext}". Returns the attachment ID or 0.
-    private static function sideload_image(string $url, int $post_id, string $name): int {
+    public static function sideload_image(string $url, int $post_id, string $name): int {
         if ($url === '' || !wp_http_validate_url($url)) {
             return 0;
         }

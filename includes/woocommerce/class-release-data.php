@@ -5,7 +5,9 @@ defined('ABSPATH') || exit;
 /**
  * Release details and filterable attributes for linked products.
  *
- * - Release meta (_d2w_*) comes from GET /releases/{id}.
+ * - Release meta (_d2w_*) comes from GET /releases/{id}, including the release's YouTube
+ *   videos (_d2w_videos).
+ * - With "Fill empty galleries" on, products without gallery images get the release images.
  * - pa_format, pa_media_condition, pa_sleeve_condition come from the listing.
  * - pa_label and pa_cat_no are filled from the release when the product has none.
  *
@@ -308,6 +310,9 @@ class D2W_Release_Data {
         }
 
         self::save_release($product, $release);
+        if (D2W_Discogs_Sync::enabled('d2w_fill_gallery')) {
+            self::fill_gallery($product, $release);
+        }
         if ($listing) {
             self::apply_listing_attributes($product, $listing);
         }
@@ -321,6 +326,60 @@ class D2W_Release_Data {
             return false;
         }
         return true;
+    }
+
+    /**
+     * The release's YouTube videos, in Discogs order: [{id, title, duration}], duration in
+     * seconds. Only embeddable YouTube links are kept; the ID is all a theme needs.
+     */
+    public static function videos(array $release): array {
+        $videos = [];
+        foreach ((array) ($release['videos'] ?? []) as $v) {
+            if (empty($v['embed']) || !preg_match('#(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([\w-]{11})#', (string) ($v['uri'] ?? ''), $m)) {
+                continue;
+            }
+            $videos[$m[1]] = [
+                'id'       => $m[1],
+                'title'    => trim((string) ($v['title'] ?? '')),
+                'duration' => (int) ($v['duration'] ?? 0),
+            ];
+        }
+        return array_values($videos);
+    }
+
+    /**
+     * Adds the release's images to a product that has no gallery yet: the first release
+     * image becomes the main image only if the product has none, the rest form the gallery
+     * (matching what an import does). Products with a gallery are left alone. Caller saves.
+     */
+    public static function fill_gallery(WC_Product $product, array $release): void {
+        $images = array_values(array_filter((array) ($release['images'] ?? []), static fn($i) => !empty($i['uri'])));
+        if (!$images || $product->get_gallery_image_ids()) {
+            return;
+        }
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $base = sanitize_title(trim($product->get_meta('_d2w_artist') . ' ' . $product->get_meta('_d2w_title'))) ?: 'discogs-' . $product->get_id();
+        $n = 0;
+        if (!$product->get_image_id()) {
+            $main = D2W_Product_Importer::sideload_image($images[0]['uri'], $product->get_id(), $base . '-' . (++$n));
+            if ($main) {
+                $product->set_image_id($main);
+            }
+        }
+        $gallery = [];
+        foreach (array_slice($images, 1) as $img) {
+            $id = D2W_Product_Importer::sideload_image($img['uri'], $product->get_id(), $base . '-' . (++$n));
+            if ($id) {
+                $gallery[] = $id;
+            }
+        }
+        if ($gallery) {
+            $product->set_gallery_image_ids($gallery);
+            D2W_Logger::info(sprintf('Gallery filled for product %d: %d image(s) from release %s.', $product->get_id(), count($gallery), $release['id'] ?? '?'));
+        }
     }
 
     // Writes release meta and fills empty label / cat no attributes. Caller saves.
@@ -354,6 +413,7 @@ class D2W_Release_Data {
         }
 
         $meta = [
+            '_d2w_videos'    => wp_json_encode(self::videos($release)),
             '_d2w_artist'    => $artist,
             '_d2w_title'     => (string) ($release['title'] ?? ''),
             '_d2w_label'     => $label_name,

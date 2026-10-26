@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format is based on 
 
 ## [Unreleased]
 
+### Added
+- Release videos: each release's embeddable YouTube videos are saved as `_d2w_videos` (ID, title, duration) with the other release details. Existing products get them from a "Re-fetch all linked products" backfill.
+- **Fill empty galleries** setting (off by default): when release details are fetched, products with no gallery images get the release's Discogs images. Products that already have a gallery are never changed.
+
 ## [1.2.0] - 2026-10-26
 
 ### Added
