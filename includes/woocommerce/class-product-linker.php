@@ -167,12 +167,20 @@ class D2W_Product_Linker {
      */
     public static function score(string $product_name, array $listing): int {
         [$artist, $title] = self::split_name($product_name);
-        // Shop-added qualifiers such as "(Signed)" or "(Test Pressing)" are not on Discogs.
-        $stripped = trim(preg_replace('/\s*[\(\[][^\)\]]*[\)\]]\s*$/', '', $title));
-        $qualified = $stripped !== '' && $stripped !== $title;
+        $score = self::score_title($artist, $title, $listing, false);
 
+        // Shop-added qualifiers such as "(Signed)" or "(Test Pressing)" are not on Discogs:
+        // also try without a trailing bracketed part, capped below an exact match.
+        $stripped = trim(preg_replace('/\s*[\(\[][^\)\]]*[\)\]]\s*$/', '', $title));
+        if ($score < 100 && $stripped !== '' && $stripped !== $title) {
+            $score = max($score, self::score_title($artist, $stripped, $listing, true));
+        }
+        return $score;
+    }
+
+    private static function score_title(string $artist, string $title, array $listing, bool $qualified): int {
         $p_artist = self::normalise($artist);
-        $p_title  = self::normalise($qualified ? $stripped : $title);
+        $p_title  = self::normalise($title);
         $l_artist = self::normalise((string) ($listing['release']['artist'] ?? ($listing['artist'] ?? '')));
         $l_title  = self::normalise((string) ($listing['release']['title'] ?? ($listing['title'] ?? '')));
 
