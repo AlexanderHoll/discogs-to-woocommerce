@@ -84,6 +84,7 @@ class D2W_Product_Importer {
             }
 
             $imported[$listing_id] = $result;
+            D2W_Release_Data::queue_fetch((int) $result);
             $messages[] = "Product '{$product['title']}' created (ID: {$result}, status: {$status}).";
         }
 
@@ -155,6 +156,9 @@ class D2W_Product_Importer {
         $wc->update_meta_data('_discogs_listing_id', (string) $product['id']);
         $wc->update_meta_data('_discogs_release_id', (string) ($product['release_id'] ?? ''));
         $wc->update_meta_data('_discogs_last_synced', time());
+
+        // Filterable format / condition attributes from the listing; release details follow async.
+        D2W_Release_Data::apply_listing_attributes($wc, $product);
 
         foreach ($mapping['custom_meta'] ?? [] as $custom) {
             $mk = sanitize_key($custom['meta_key'] ?? '');

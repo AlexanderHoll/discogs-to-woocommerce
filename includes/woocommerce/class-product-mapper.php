@@ -59,7 +59,8 @@ class D2W_Product_Mapper {
             'currency'         => $listing['price']['currency'] ?? get_woocommerce_currency(),
             'media_condition'  => $listing['condition'] ?? '',
             'sleeve_condition' => $listing['sleeve_condition'] ?? '',
-            'format'           => $listing['format'] ?? '',
+            // Listings carry the format on the embedded release, e.g. '2xLP, Album'.
+            'format'           => $listing['format'] ?? ($listing['release']['format'] ?? ''),
             'year'             => $listing['release']['year'] ?? '',
         ];
     }

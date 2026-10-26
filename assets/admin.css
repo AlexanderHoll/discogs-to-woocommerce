@@ -148,3 +148,13 @@
 .d2w-sync-log th {
     white-space: nowrap;
 }
+
+/* ── Link & Backfill ── */
+.d2w-inline-form {
+    display: inline-block;
+    margin: 0 8px 8px 0;
+}
+
+.d2w-link-status th {
+    width: 70%;
+}

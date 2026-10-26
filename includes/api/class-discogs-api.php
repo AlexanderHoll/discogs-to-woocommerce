@@ -172,6 +172,12 @@ class D2W_Discogs_API {
         return $listings;
     }
 
+    // Release (label, country, genres, styles, tracklist, formats), or null on failure.
+    public static function fetch_release($release_id): ?array {
+        $url = self::BASE_URL . '/releases/' . rawurlencode((string) $release_id);
+        return self::decode(self::request($url), "release {$release_id}");
+    }
+
     // Full marketplace listing, or null on failure.
     public static function fetch_listing($listing_id): ?array {
         $url = self::BASE_URL . '/marketplace/listings/' . rawurlencode((string) $listing_id);
