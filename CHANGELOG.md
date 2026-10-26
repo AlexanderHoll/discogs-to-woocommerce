@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on 
 
 ## [Unreleased]
 
-## [1.2.0] - Unreleased
+## [1.2.0] - 2026-10-26
 
 ### Added
 - **Link & Backfill** admin screen: auto-links products that carry a CedCommerce Discogs listing ID, suggests artist/title matches against the For Sale inventory for confirmation, and shows linking and backfill status.

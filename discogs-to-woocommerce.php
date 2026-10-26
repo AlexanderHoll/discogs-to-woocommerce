@@ -3,7 +3,7 @@
  * Plugin Name:          Discogs to WooCommerce
  * Plugin URI:           https://github.com/AlexanderHoll/discogs-to-woocommerce
  * Description:          Imports a Discogs seller inventory as WooCommerce products and keeps stock in sync with Discogs.
- * Version:              1.1.0
+ * Version:              1.2.0
  * Requires at least:    6.4
  * Requires PHP:         8.0
  * Requires Plugins:     woocommerce
@@ -17,7 +17,7 @@
 
 defined('ABSPATH') || exit;
 
-define('D2W_VERSION', '1.1.0');
+define('D2W_VERSION', '1.2.0');
 define('D2W_PLUGIN_FILE', __FILE__);
 define('D2W_PATH', plugin_dir_path(__FILE__));
 define('D2W_URL', plugin_dir_url(__FILE__));

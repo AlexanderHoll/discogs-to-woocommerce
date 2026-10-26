@@ -185,8 +185,8 @@ The workflow runs in a GitHub environment called `production`. Add required revi
 ## Releasing
 
 1. Update `D2W_VERSION` and the `Version:` header in `discogs-to-woocommerce.php`, and add a section to `CHANGELOG.md`.
-2. Commit, then tag and push: `git tag v1.1.0 && git push origin v1.1.0`.
-3. The **Release** workflow checks that the tag matches both version numbers, builds `d2w-1.1.0.zip` with `git archive` (files marked `export-ignore` in `.gitattributes` are left out) and attaches it to a GitHub Release.
+2. Commit, then tag and push: `git tag v1.2.0 && git push origin v1.2.0`.
+3. The **Release** workflow checks that the tag matches both version numbers, builds `d2w-1.2.0.zip` with `git archive` (files marked `export-ignore` in `.gitattributes` are left out) and attaches it to a GitHub Release.
 
 The zip unpacks to a `d2w/` folder. If a site already runs the plugin from a differently named folder, uploading the zip through WP Admin installs a second copy; deactivate and delete the old folder first (settings and product links are kept, since they live in the database).
 
