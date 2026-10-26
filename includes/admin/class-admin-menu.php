@@ -50,6 +50,15 @@ class D2W_Admin_Menu {
             [D2W_Field_Mapping_Page::class, 'render_page']
         )] = 'field-mapping';
 
+        self::$screens[add_submenu_page(
+            'd2w_page',
+            'Link & Backfill',
+            'Link & Backfill',
+            'manage_woocommerce',
+            'd2w-link',
+            [D2W_Link_Page::class, 'render_page']
+        )] = 'link';
+
         // Hidden page for import results (empty parent = not shown in nav).
         $results_hook = add_submenu_page(
             '',
@@ -185,7 +194,7 @@ class D2W_Admin_Menu {
     }
 
     private static function render_sync_report(array $report): void {
-        $labels = ['sold' => 'Mark sold', 'restock' => 'Restock', 'price' => 'Price', 'import' => 'Import', 'clear_flag' => 'Clear flag'];
+        $labels = ['sold' => 'Mark sold', 'restock' => 'Restock', 'price' => 'Price', 'import' => 'Import', 'clear_flag' => 'Clear flag', 'details' => 'Details'];
         $class  = $report['status'] === 'ok' ? 'notice-success' : 'notice-error';
         $title  = $report['dry_run'] ? 'Sync preview (nothing was changed)' : 'Sync complete';
         if ($report['status'] !== 'ok') {

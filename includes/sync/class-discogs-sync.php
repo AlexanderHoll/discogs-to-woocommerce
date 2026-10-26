@@ -219,6 +219,11 @@ class D2W_Discogs_Sync {
                 continue;
             }
 
+            // Keep the filterable format / condition attributes in step with the listing.
+            if (D2W_Release_Data::listing_attributes_differ($product, $listing)) {
+                $changes[] = $base + ['type' => 'details', 'detail' => 'Format or condition attributes updated from the listing'];
+            }
+
             if (!$in_stock && $restock) {
                 if ($product->get_meta(self::SOLD_ON_SITE_META)) {
                     $report['counts']['skipped']++;
@@ -342,6 +347,9 @@ class D2W_Discogs_Sync {
                     break;
                 case 'clear_flag':
                     $product->delete_meta_data(self::SOLD_ON_SITE_META);
+                    break;
+                case 'details':
+                    D2W_Release_Data::apply_listing_attributes($product, $listings[$change['listing_id']] ?? []);
                     break;
             }
 

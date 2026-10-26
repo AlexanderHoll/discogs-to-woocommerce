@@ -28,6 +28,10 @@ require_once D2W_PATH . 'includes/woocommerce/class-product-mapper.php';
 require_once D2W_PATH . 'includes/admin/class-field-mapping-page.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-importer.php';
 require_once D2W_PATH . 'includes/woocommerce/class-order-sync.php';
+require_once D2W_PATH . 'includes/woocommerce/class-release-data.php';
+require_once D2W_PATH . 'includes/woocommerce/class-product-linker.php';
+require_once D2W_PATH . 'includes/sync/class-backfill.php';
+require_once D2W_PATH . 'includes/admin/class-link-page.php';
 require_once D2W_PATH . 'includes/admin/class-import-page.php';
 require_once D2W_PATH . 'includes/admin/class-admin-menu.php';
 require_once D2W_PATH . 'includes/sync/class-discogs-sync.php';
@@ -57,6 +61,9 @@ function d2w_boot(): void {
     D2W_Field_Mapping_Page::register();
     D2W_Discogs_Sync::register();
     D2W_Order_Sync::register();
+    D2W_Release_Data::register();
+    D2W_Backfill::register();
+    D2W_Link_Page::register();
 
     if (defined('WP_CLI') && WP_CLI) {
         require_once D2W_PATH . 'includes/sync/class-sync-cli.php';
