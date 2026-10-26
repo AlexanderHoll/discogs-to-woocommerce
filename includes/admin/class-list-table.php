@@ -13,6 +13,9 @@ class Discogs_Product_List_Table extends WP_List_Table {
 
     private array $filter_args;
 
+    // ['pages' => int, 'items' => int] for the current view.
+    private array $pagination_info = ['pages' => 1, 'items' => 0];
+
     public function __construct() {
         parent::__construct([
             'singular' => 'discogs_product',
@@ -34,16 +37,24 @@ class Discogs_Product_List_Table extends WP_List_Table {
         $status   = $_GET['d2w_status'] ?? 'For Sale';
         $per_page = (int) ($_GET['d2w_per_page'] ?? 50);
 
+        $unimported = !empty($_GET['d2w_unimported']);
+
         return [
             'sort'       => in_array($sort, $valid_sorts, true) ? $sort : 'listed',
             'sort_order' => ($_GET['d2w_sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc',
             'per_page'   => in_array($per_page, [25, 50, 100], true) ? $per_page : 50,
-            'status'     => in_array($status, $valid_status, true) ? $status : 'For Sale',
+            // Only For Sale listings can be "unimported" candidates.
+            'status'     => $unimported ? 'For Sale' : (in_array($status, $valid_status, true) ? $status : 'For Sale'),
+            'unimported' => $unimported,
         ];
     }
 
     public function get_filter_args(): array {
         return $this->filter_args;
+    }
+
+    public function get_pagination_info(): array {
+        return $this->pagination_info;
     }
 
     // -------------------------------------------------------------------------
@@ -77,8 +88,25 @@ class Discogs_Product_List_Table extends WP_List_Table {
     // -------------------------------------------------------------------------
 
     public function prepare_items(): void {
-        $current_page = isset($_GET['paged']) ? intval($_GET['paged']) : 1;
-        $this->items  = D2W_Product_Mapper::map_listings($current_page, $this->filter_args);
+        $current_page = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+        $per_page     = $this->filter_args['per_page'];
+
+        if ($this->filter_args['unimported']) {
+            // Discogs cannot filter by "not on the website", so page through the full
+            // For Sale inventory (cached briefly) and filter locally.
+            $all = D2W_Product_Mapper::map_inventory($this->filter_args) ?? [];
+            $all = array_values(array_filter($all, fn($p) => !isset(self::get_imported_ids()[$p['id']])));
+
+            $this->items           = array_slice($all, ($current_page - 1) * $per_page, $per_page);
+            $this->pagination_info = ['pages' => max(1, (int) ceil(count($all) / $per_page)), 'items' => count($all)];
+        } else {
+            $this->items = D2W_Product_Mapper::map_listings($current_page, $this->filter_args);
+            $data        = D2W_Discogs_API::fetch($current_page, $this->filter_args);
+            $this->pagination_info = [
+                'pages' => (int) ($data['pagination']['pages'] ?? 1),
+                'items' => (int) ($data['pagination']['items'] ?? 0),
+            ];
+        }
 
         set_transient('d2w_products_' . get_current_user_id(), $this->items, 600);
 
@@ -232,6 +260,11 @@ class Discogs_Product_List_Table extends WP_List_Table {
                         </option>
                     <?php endforeach; ?>
                 </select>
+
+                <label class="d2w-filter-bar__check">
+                    <input type="checkbox" name="d2w_unimported" value="1" <?php checked($args['unimported']); ?> />
+                    Unimported only
+                </label>
 
                 <?php submit_button('Apply', 'secondary', '', false); ?>
             </form>

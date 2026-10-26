@@ -68,10 +68,14 @@ Sync compares your imported products with your Discogs inventory. It fetches the
 | --- | --- | --- |
 | Sync interval | Disabled | How often sync runs via WP-Cron: 15 or 30 minutes, hourly, twice daily or daily. |
 | Mark sold items out of stock | Always on | An in-stock product whose listing is no longer `For Sale` is set to out of stock. Each one is double-checked against the listing itself first. |
-| Restock relisted items | On | An out-of-stock product whose listing is `For Sale` again goes back to stock 1. |
-| Sync prices | Off | If the Discogs price differs from the WooCommerce regular price, the product price is updated. |
-| Auto-import new listings as drafts | Off | New `For Sale` listings are imported as draft products using the field mapping. |
+| Restock relisted items | On | An out-of-stock product whose listing is `For Sale` again goes back to stock 1. Products that sold on the website are **not** restocked while their listing is still `For Sale` (see below). |
+| Sync prices | Off | If the Discogs price differs from the WooCommerce regular price (or no regular price is set), the regular price is updated. Listings priced in a different currency from the store are skipped. |
+| Auto-import new listings as drafts | Off | New `For Sale` listings are imported as draft products using the field mapping, up to 10 per run to keep runs short. |
 | Set Discogs listing to Draft when it sells on the website | Off | When an order containing an imported product reaches Processing or Completed, the Discogs listing is set to Draft so it cannot sell twice. An order note records the result for each item. Listings are never deleted. |
+
+**Website sales and restocking.** When an order containing an imported product reaches Processing or Completed, the product is flagged as sold on the website. Without that flag, a website sale whose Discogs listing is still `For Sale` would be restocked by the next sync and could sell twice. Flagged products are reported in the sync results instead ("remove or draft it on Discogs"). The flag clears automatically once the listing leaves `For Sale`, so a genuine relist later is restocked as normal. Turning on "Set Discogs listing to Draft" avoids the manual step.
+
+**Safety checks.** Sync holds a lock so two runs never overlap. If 10 or more in-stock products, and over half of all in-stock products, are missing from Discogs at once, the run stops without changes (filter `d2w_sync_max_missing_ratio` to adjust), since that usually means an API or account problem rather than a sales rush.
 
 The settings page also shows:
 

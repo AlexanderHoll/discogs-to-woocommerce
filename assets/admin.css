@@ -124,3 +124,27 @@
     display: flex;
     gap: 4px;
 }
+
+/* ── Filter bar checkbox ── */
+.d2w-filter-bar__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 4px;
+}
+
+/* ── Settings: sync ── */
+.d2w-sync-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.d2w-sync-report .d2w-sync-changes {
+    margin: 8px 0 12px;
+}
+
+.d2w-sync-log td,
+.d2w-sync-log th {
+    white-space: nowrap;
+}

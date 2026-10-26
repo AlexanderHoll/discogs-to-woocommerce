@@ -13,8 +13,17 @@ All notable changes to this project are documented here. The format is based on 
 - Logging through the WooCommerce logger (source `d2w`).
 - Admin notice when WooCommerce is not active; the plugin does not boot without it.
 - GitHub Actions: PHP lint on 8.0 and 8.3, SFTP deploy to live on push to `main`, and release zips on `v*` tags.
+- Sync settings: restock relisted items (default on), sync prices (default off), auto-import new listings as drafts (default off, 10 per run).
+- Optional website to Discogs sync (default off): when an order reaches Processing or Completed, imported items' Discogs listings are set to Draft via Action Scheduler, with an order note per item. Runs once per order; listings are never deleted.
+- Website sales flag products so sync does not restock them while their Discogs listing is still For Sale.
+- New listings report on the settings page and an "Unimported only" filter on the import screen.
+- Sync log of the last 20 runs, a "Preview Sync" dry run button and `wp d2w sync [--dry-run]`.
+- Sync lock, and a guard that aborts if most in-stock products are missing from Discogs at once (`d2w_sync_max_missing_ratio`).
+- HPOS compatibility declaration.
 
 ### Changed
+- Sync fetches the whole For Sale inventory (100 listings per request) and diffs it against imported products, instead of one request per product. Nothing is changed unless every page loads; missing listings are double-checked before a product is marked sold.
+- Importing a listing that is not on the cached inventory page now fetches it from Discogs instead of failing.
 - Products are created with the WooCommerce product API, so regular price, stock and the product lookup tables are set correctly.
 - Already imported listings are skipped on re-import and reported as skipped.
 - Imported images are named `artist-title-N.jpg`.

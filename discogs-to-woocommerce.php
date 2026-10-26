@@ -27,6 +27,7 @@ require_once D2W_PATH . 'includes/api/class-discogs-api.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-mapper.php';
 require_once D2W_PATH . 'includes/admin/class-field-mapping-page.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-importer.php';
+require_once D2W_PATH . 'includes/woocommerce/class-order-sync.php';
 require_once D2W_PATH . 'includes/admin/class-import-page.php';
 require_once D2W_PATH . 'includes/admin/class-admin-menu.php';
 require_once D2W_PATH . 'includes/sync/class-discogs-sync.php';
@@ -35,6 +36,13 @@ register_activation_hook(__FILE__, ['D2W_Discogs_Sync', 'schedule']);
 register_deactivation_hook(__FILE__, ['D2W_Discogs_Sync', 'unschedule']);
 
 add_action('plugins_loaded', 'd2w_boot');
+
+// Order meta is read and written through the WC_Order API, so HPOS is supported.
+add_action('before_woocommerce_init', static function () {
+    if (class_exists(\Automattic\WooCommerce\Utilities\FeaturesUtil::class)) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+    }
+});
 
 function d2w_boot(): void {
     if (!class_exists('WooCommerce')) {
@@ -48,6 +56,12 @@ function d2w_boot(): void {
     D2W_Product_Importer::register_hooks();
     D2W_Field_Mapping_Page::register();
     D2W_Discogs_Sync::register();
+    D2W_Order_Sync::register();
+
+    if (defined('WP_CLI') && WP_CLI) {
+        require_once D2W_PATH . 'includes/sync/class-sync-cli.php';
+        WP_CLI::add_command('d2w', 'D2W_Sync_CLI');
+    }
 
     add_action('admin_enqueue_scripts', 'd2w_enqueue_admin_assets');
 }

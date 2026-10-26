@@ -14,9 +14,14 @@ class D2W_Import_Page {
 
         $table = new Discogs_Product_List_Table();
         $table->prepare_items();
+        $args = $table->get_filter_args();
 
         if (empty($table->items)) {
-            echo '<p>No products fetched. Check your credentials in <a href="' . esc_url(admin_url('admin.php?page=d2w-settings')) . '">Settings</a>.</p>';
+            if ($args['unimported']) {
+                echo '<p>Every For Sale listing has been imported. <a href="' . esc_url(admin_url('admin.php?page=d2w_page')) . '">Show all listings</a>.</p>';
+            } else {
+                echo '<p>No products fetched. Check your credentials in <a href="' . esc_url(admin_url('admin.php?page=d2w-settings')) . '">Settings</a>.</p>';
+            }
             echo '</div>';
             return;
         }
@@ -27,7 +32,7 @@ class D2W_Import_Page {
         $table->display();
         echo '</form>';
 
-        self::render_pagination($current_page, $table->get_filter_args());
+        self::render_pagination($current_page, $args, $table->get_pagination_info());
 
         echo '</div>';
     }
@@ -52,34 +57,29 @@ class D2W_Import_Page {
         echo '</div>';
     }
 
-    private static function render_pagination(int $current_page, array $filter_args): void {
-        // Re-uses the cached response, so no extra HTTP request.
-        $data = D2W_Discogs_API::fetch($current_page, $filter_args);
-
-        if (!isset($data['pagination'])) {
-            return;
-        }
-
-        $total_pages = (int) ($data['pagination']['pages'] ?? 1);
-        $total_items = (int) ($data['pagination']['items'] ?? 0);
+    private static function render_pagination(int $current_page, array $filter_args, array $info): void {
+        $total_pages = max(1, (int) $info['pages']);
+        $total_items = (int) $info['items'];
 
         // Build base params preserving active filters, omitting defaults to keep URLs clean.
         $base = array_filter([
-            'page'            => 'd2w_page',
-            'd2w_sort'        => $filter_args['sort'] !== 'listed'     ? $filter_args['sort']       : null,
-            'd2w_sort_order'  => $filter_args['sort_order'] !== 'desc' ? $filter_args['sort_order'] : null,
-            'd2w_per_page'    => $filter_args['per_page'] !== 50       ? $filter_args['per_page']   : null,
-            'd2w_status'      => $filter_args['status'] !== 'For Sale' ? $filter_args['status']     : null,
+            'page'           => 'd2w_page',
+            'd2w_sort'       => $filter_args['sort'] !== 'listed'     ? $filter_args['sort']       : null,
+            'd2w_sort_order' => $filter_args['sort_order'] !== 'desc' ? $filter_args['sort_order'] : null,
+            'd2w_per_page'   => $filter_args['per_page'] !== 50       ? $filter_args['per_page']   : null,
+            'd2w_status'     => $filter_args['status'] !== 'For Sale' ? $filter_args['status']     : null,
+            'd2w_unimported' => $filter_args['unimported'] ? 1 : null,
         ]);
 
         $page_url = static fn($p) => esc_url(admin_url('admin.php?' . http_build_query(array_merge($base, ['paged' => $p]))));
 
         echo '<div class="d2w-pagination">';
         printf(
-            '<span class="d2w-pagination__info">Page %d of %d (%s listings)</span>',
+            '<span class="d2w-pagination__info">Page %d of %d (%s %s)</span>',
             $current_page,
             $total_pages,
-            number_format($total_items)
+            esc_html(number_format($total_items)),
+            $filter_args['unimported'] ? 'unimported listings' : 'listings'
         );
 
         echo '<span class="d2w-pagination__links">';

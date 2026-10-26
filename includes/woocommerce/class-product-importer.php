@@ -65,8 +65,13 @@ class D2W_Product_Importer {
             }
 
             if (!isset($by_id[$listing_id])) {
-                $messages[] = "Listing {$listing_id} not found. Reload the inventory page and try again.";
-                continue;
+                // Not on the cached page (e.g. a different page or per-page setting): fetch it directly.
+                $listing = D2W_Discogs_API::fetch_listing($listing_id);
+                if ($listing === null) {
+                    $messages[] = "Listing {$listing_id} not found on Discogs.";
+                    continue;
+                }
+                $by_id[$listing_id] = D2W_Product_Mapper::map_listing($listing);
             }
 
             $product = $by_id[$listing_id];

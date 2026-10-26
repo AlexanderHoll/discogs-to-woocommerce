@@ -131,6 +131,82 @@ class D2W_Discogs_API {
     }
 
     /**
+     * Every For Sale listing (raw API arrays) keyed by listing ID, paging 100 at a time.
+     * Returns null if any page fails, so callers never act on a partial inventory.
+     */
+    public static function fetch_inventory_for_sale(string $sort = 'listed', string $sort_order = 'asc'): ?array {
+        if (!get_option('d2w_discogs_username')) {
+            D2W_Logger::error('Inventory fetch skipped: no Discogs username set.');
+            return null;
+        }
+
+        $listings = [];
+        $page     = 1;
+        $pages    = 1;
+
+        do {
+            $data = self::decode(self::request(self::inventory_url([
+                'status'     => 'For Sale',
+                'per_page'   => 100,
+                'page'       => $page,
+                'sort'       => $sort,
+                'sort_order' => $sort_order,
+            ])), "inventory page {$page}");
+
+            if ($data === null || !isset($data['listings']) || !is_array($data['listings'])) {
+                D2W_Logger::error("Inventory fetch aborted at page {$page} of {$pages}.");
+                return null;
+            }
+
+            foreach ($data['listings'] as $listing) {
+                if (isset($listing['id'])) {
+                    $listings[(int) $listing['id']] = $listing;
+                }
+            }
+
+            $pages = max(1, (int) ($data['pagination']['pages'] ?? 1));
+            $page++;
+        } while ($page <= $pages && $page <= 500);
+
+        return $listings;
+    }
+
+    // Full marketplace listing, or null on failure.
+    public static function fetch_listing($listing_id): ?array {
+        $url = self::BASE_URL . '/marketplace/listings/' . rawurlencode((string) $listing_id);
+        return self::decode(self::request($url), "listing {$listing_id}");
+    }
+
+    /**
+     * Edits a marketplace listing. Discogs requires release_id, condition and price on
+     * every edit, so callers should start from fetch_listing() values.
+     *
+     * @return true|WP_Error
+     */
+    public static function update_listing($listing_id, array $fields) {
+        $url      = self::BASE_URL . '/marketplace/listings/' . rawurlencode((string) $listing_id);
+        $response = self::request($url, [
+            'method'  => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => wp_json_encode($fields),
+        ]);
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code < 200 || $code >= 300) {
+            $body    = json_decode(wp_remote_retrieve_body($response), true);
+            $message = is_array($body) && isset($body['message']) ? $body['message'] : "HTTP {$code}";
+            D2W_Logger::error("Updating listing {$listing_id} failed: {$message}");
+            return new WP_Error('d2w_discogs_update_failed', $message);
+        }
+
+        return true;
+    }
+
+    /**
      * Returns the status string for a single marketplace listing, or null on failure.
      * Requires a User Token to see non-"For Sale" statuses (Sold, Expired, Draft).
      */
