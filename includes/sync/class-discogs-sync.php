@@ -18,6 +18,7 @@ class D2W_Discogs_Sync {
         'd2w_sync_auto_import'   => '0',
         'd2w_sync_push_to_drafts' => '0',
         'd2w_fill_gallery'       => '0',
+        'd2w_fill_weight'        => '1',
     ];
 
     // Product meta set when an imported product sells on the website (see D2W_Order_Sync).
@@ -320,6 +321,7 @@ class D2W_Discogs_Sync {
 
     private static function apply(array $changes, array $listings, array &$report): void {
         $to_import = [];
+        $changed   = [];
 
         foreach ($changes as $change) {
             if ($change['type'] === 'import') {
@@ -356,11 +358,13 @@ class D2W_Discogs_Sync {
 
             try {
                 $product->save();
+                $changed[] = $product->get_id();
             } catch (Exception $e) {
                 $report['counts']['errors']++;
                 D2W_Logger::error("Saving product {$change['product_id']} failed: " . $e->getMessage());
             }
         }
+        D2W_Cache::purge_products($changed);
 
         if ($to_import) {
             $products = array_map(

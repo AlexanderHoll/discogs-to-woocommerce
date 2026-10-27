@@ -108,6 +108,7 @@ class D2W_Admin_Menu {
             'd2w_sync_prices'         => ['Sync prices', 'Update the WooCommerce regular price when the Discogs price differs.'],
             'd2w_sync_auto_import'    => ['Auto-import new listings', 'Import new For Sale listings as draft products (up to ' . D2W_Discogs_Sync::AUTO_IMPORT_MAX . ' per run).'],
             'd2w_sync_push_to_drafts' => ['Website sales to Discogs', 'When an item sells on the website, set the Discogs listing to Draft. This changes your Discogs listings. Listings are never deleted.'],
+            'd2w_fill_weight'         => ['Fill empty product weights', 'When release details are fetched, a product with no weight gets the Discogs estimated weight of the record (packaging not included), so weight-based shipping and labels are closer. Weights already set are never changed.'],
             'd2w_fill_gallery'        => ['Fill empty galleries', 'When release details are fetched (after an import, and by the backfill), a product with no gallery images gets the other Discogs images of its release. Products that already have a gallery are never changed. Images are downloaded into the media library.'],
         ];
         foreach ($toggles as $option => [$label, $description]) {
@@ -121,6 +122,32 @@ class D2W_Admin_Menu {
                 'description' => $description,
             ]);
         }
+
+        // Caching (LiteSpeed is automatic; Cloudflare only when credentials are set)
+        add_settings_section('d2w_cache_section', 'Caching', [__CLASS__, 'render_cache_section_intro'], 'd2w-settings');
+        foreach ([
+            'd2w_cf_zone'  => ['Cloudflare zone ID', 'text', 'Overview page of the domain in Cloudflare, right-hand column.'],
+            'd2w_cf_token' => ['Cloudflare API token', 'password', 'A token with only the Zone > Cache Purge permission for this zone.'],
+        ] as $option => [$label, $type, $help]) {
+            register_setting('d2w_options', $option, ['sanitize_callback' => 'sanitize_text_field', 'default' => '']);
+            add_settings_field($option, $label, [__CLASS__, 'render_text_field'], 'd2w-settings', 'd2w_cache_section', [
+                'label_for' => $option, 'option' => $option, 'type' => $type, 'help' => $help,
+            ]);
+        }
+    }
+
+    public static function render_cache_section_intro() {
+        echo '<p>After a sync, backfill or release fetch changes products, D2W clears their pages from LiteSpeed Cache (when it is active), along with the shop and category pages. Fill in Cloudflare only if Cloudflare caches your HTML pages (APO or a Cache Everything rule); D2W then purges the changed product URLs, the shop page and the home page there too. Leave both empty otherwise.</p>';
+    }
+
+    public static function render_text_field(array $args) {
+        printf(
+            '<input type="%1$s" id="%2$s" name="%2$s" value="%3$s" class="regular-text" autocomplete="off" /><p class="description">%4$s</p>',
+            esc_attr($args['type']),
+            esc_attr($args['option']),
+            esc_attr((string) get_option($args['option'], '')),
+            esc_html($args['help'])
+        );
     }
 
     public static function sanitize_sync_interval($value): string {

@@ -23,6 +23,7 @@ define('D2W_PATH', plugin_dir_path(__FILE__));
 define('D2W_URL', plugin_dir_url(__FILE__));
 
 require_once D2W_PATH . 'includes/class-logger.php';
+require_once D2W_PATH . 'includes/class-cache.php';
 require_once D2W_PATH . 'includes/api/class-discogs-api.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-mapper.php';
 require_once D2W_PATH . 'includes/admin/class-field-mapping-page.php';
@@ -32,6 +33,7 @@ require_once D2W_PATH . 'includes/woocommerce/class-release-data.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-linker.php';
 require_once D2W_PATH . 'includes/sync/class-backfill.php';
 require_once D2W_PATH . 'includes/admin/class-link-page.php';
+require_once D2W_PATH . 'includes/admin/class-product-videos.php';
 require_once D2W_PATH . 'includes/admin/class-import-page.php';
 require_once D2W_PATH . 'includes/admin/class-admin-menu.php';
 require_once D2W_PATH . 'includes/sync/class-discogs-sync.php';
@@ -64,6 +66,7 @@ function d2w_boot(): void {
     D2W_Release_Data::register();
     D2W_Backfill::register();
     D2W_Link_Page::register();
+    D2W_Product_Videos::register();
 
     if (defined('WP_CLI') && WP_CLI) {
         require_once D2W_PATH . 'includes/sync/class-sync-cli.php';

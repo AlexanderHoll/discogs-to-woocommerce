@@ -38,6 +38,7 @@ class D2W_Backfill {
      */
     public static function process(array $product_ids, bool $dry_run = false, ?array $inventory = null): array {
         $counts    = ['processed' => 0, 'release' => 0, 'attributes' => 0, 'failed' => 0];
+        $changed   = [];
         $inventory ??= D2W_Product_Linker::inventory() ?? [];
 
         foreach ($product_ids as $product_id) {
@@ -60,6 +61,7 @@ class D2W_Backfill {
 
             if (D2W_Release_Data::fetch_and_save($product_id, $listing)) {
                 $counts['release']++;
+                $changed[] = $product_id;
             } else {
                 $counts['failed']++;
                 // Mark as attempted so a release that no longer exists is not retried forever.
@@ -67,6 +69,7 @@ class D2W_Backfill {
             }
         }
 
+        D2W_Cache::purge_products($changed);
         return $counts;
     }
 

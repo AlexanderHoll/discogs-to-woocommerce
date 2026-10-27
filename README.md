@@ -143,8 +143,19 @@ Everything is optional: a product may be linked without release details, and old
 | `_d2w_genres` | Comma separated, e.g. `Electronic, Hip Hop` | Release fetch |
 | `_d2w_styles` | Comma separated, e.g. `House, Breakbeat` | Release fetch |
 | `_d2w_tracklist` | JSON array of `{"position":"A1","title":"...","duration":"5:32"}`, tracks only (headings and index tracks skipped); `duration` may be empty | Release fetch |
-| `_d2w_videos` | JSON array of `{"id":"URytteyfxRM","title":"...","duration":276}`: the release's embeddable YouTube videos in Discogs order, `id` is the YouTube video ID, `duration` in seconds (0 if unknown) | Release fetch |
+| `_d2w_videos` | JSON array of `{"id":"URytteyfxRM","title":"...","duration":276,"track":"A1"}`: the release's embeddable YouTube videos in Discogs order. `id` is the YouTube video ID, `duration` in seconds (0 if unknown), `track` the tracklist position the video was matched to (empty if none). Editable per product in the **Discogs videos** box on the product screen | Release fetch, product screen |
+| `_d2w_videos_edited` | Unix timestamp, present once the videos were saved from the product screen; release fetches then leave `_d2w_videos` alone | Product screen |
+| `_d2w_formats` | JSON `{"descriptions":["12\"","45 RPM","Limited Edition"],"text":["Pink"]}`: every format description and free-text note of the release | Release fetch |
+| `_d2w_credits` | JSON array of `{"name":"Tim Reaper","role":"Remix","tracks":"B2"}`, release and track credits, one row per person and role (`tracks` empty for the whole release) | Release fetch |
+| `_d2w_credit_names` | Comma-separated credited names, for search | Release fetch |
+| `_d2w_weight` | Discogs estimated weight in grams | Release fetch |
 | `_d2w_sold_on_site` | Unix timestamp, present while a website sale awaits removal from Discogs | Website order |
+
+With **Fill empty product weights** on (Settings, on by default), a release fetch sets the WooCommerce weight from `_d2w_weight` when the product has none, converted to the store's weight unit. Packaging is not included. Weights already set are never changed.
+
+**Videos and tracks.** Each video is matched to a track by title (exact titles first, then titles contained in the video title, with artist prefixes and bracketed extras such as `[CAT001]` or `(Official Audio)` ignored). Discogs video data is user submitted, so the **Discogs videos** box on the product screen lets you change the track for any video, remove videos or add YouTube links. Saving there marks the product's videos as edited; tick "Use the Discogs videos again" to return to the automatic list on the next fetch.
+
+**Caching.** After a sync, backfill or release fetch changes products, D2W purges them from LiteSpeed Cache (`litespeed_purge_post` for each product and `litespeed_purge_posttype` for product listings) and fires `d2w_products_changed` with the product IDs. If Cloudflare caches HTML pages (APO or a Cache Everything rule), add a zone ID and an API token with only the Zone > Cache Purge permission under **Settings > Caching**; D2W then purges the changed product URLs, the shop page and the home page by URL. Both are optional; without LiteSpeed or Cloudflare credentials nothing is sent.
 
 With **Fill empty galleries** on (Settings, off by default), a release fetch also downloads the release's images for a product whose gallery is empty: the first image becomes the main image only if the product has none, the rest form the gallery. Products that already have gallery images are never changed.
 
@@ -161,6 +172,7 @@ All are hidden on the product page by default (`is_visible = false`); themes ren
 | `pa_sleeve_condition` | As above, plus `Generic` / `generic`, `No cover` / `no-cover`, `Not graded` / `not-graded` | Listing sleeve condition |
 | `pa_label` | Label name / `sanitize_title` of it | Release, only if the product has no label yet |
 | `pa_cat_no` | Catalogue number / `sanitize_title` of it | Release, only if the product has none yet |
+| `pa_pressing` | `Test Pressing` / `test-pressing`, `Limited Edition` / `limited-edition`, `Numbered` / `numbered`, `Coloured Vinyl` / `coloured-vinyl`, `Picture Disc` / `picture-disc`, `White Label` / `white-label`, `Promo` / `promo`, `180g` / `180g`, `Gatefold` / `gatefold`, `Repress` / `repress`, `Reissue` / `reissue`, `Remastered` / `remastered` | Release formats: descriptions, plus the free text for 180g, gatefold and vinyl colours (not label or sleeve colours). Replaced on every release fetch |
 
 Condition terms carry a sort order (term meta `order`, M first) and the attributes sort by it, so filters list grades best to worst. Sync updates format and condition when a listing changes on Discogs. `pa_label` and `pa_cat_no` existed before D2W and power the `/label/...` archives; D2W never overwrites values already set.
 
