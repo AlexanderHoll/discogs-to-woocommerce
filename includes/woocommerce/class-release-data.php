@@ -374,7 +374,8 @@ class D2W_Release_Data {
     /**
      * Pressing details (keys of PRESSING) found in the release formats, best first.
      * Colours count only on vinyl, and not when they describe a label, sleeve or print
-     * ("Red Labels"), so black vinyl with coloured labels is not "Coloured Vinyl".
+     * ("Red Labels", "Yellow OBI-strip", "Pink Gel Sleeve"), so black vinyl with a coloured
+     * label or sleeve is not "Coloured Vinyl".
      */
     public static function pressing_details(array $release): array {
         $found = [];
@@ -401,7 +402,7 @@ class D2W_Release_Data {
                 $found['180g'] = true;
             }
             if (strcasecmp((string) ($f['name'] ?? ''), 'Vinyl') === 0 && preg_match(
-                '/\b(?:colou?red|red|pink|blue|green|yellow|orange|purple|violet|gold|golden|silver|clear|transparent|translucent|marbled?|splatter(?:ed)?|swirl(?:ed)?|smoke[dy]?|grey|gray|cream|white|bone|brown|magenta|turquoise|teal|neon|glow|opaque|mint|olive|lilac|lavender)\b(?!\s*(?:labels?|sleeves?|print(?:ed)?|stamp(?:ed)?|text|cover|ink|insert))/',
+                '/\b(?:colou?red|red|pink|blue|green|yellow|orange|purple|violet|gold|golden|silver|clear|transparent|translucent|marbled?|splatter(?:ed)?|swirl(?:ed)?|smoke[dy]?|grey|gray|cream|white|bone|brown|magenta|turquoise|teal|neon|glow|opaque|mint|olive|lilac|lavender)\b(?![\s&-]*(?:labels?|sleeves?|print(?:ed)?|stamp(?:ed)?|text|cover|ink|inserts?|obi|strips?|gel|jacket|poster|inner))/',
                 $text
             )) {
                 $found['Coloured Vinyl'] = true;
