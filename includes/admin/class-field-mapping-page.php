@@ -258,7 +258,7 @@ class D2W_Field_Mapping_Page {
                                 <tr class="d2w-meta-section-header">
                                     <th colspan="2">
                                         Taxonomies
-                                        <span class="d2w-meta-section-desc">Set from the release when it is fetched (just after import, on sync and on backfill). Drop Genres or Styles here. Terms are matched by name, created when missing, and categories added by hand are kept.</span>
+                                        <span class="d2w-meta-section-desc">Set from the release when it is fetched (just after import, on sync and on backfill). Drop Genres or Styles here. Terms are matched by name, created when missing, and categories added by hand are kept. Any metal style (Heavy Metal, Metalcore...) also adds a Metal tag.</span>
                                     </th>
                                 </tr>
 

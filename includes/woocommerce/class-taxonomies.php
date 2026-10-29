@@ -47,6 +47,17 @@ class D2W_Taxonomies {
     }
 
     /**
+     * Extra terms added when any source name matches: taxonomy => [regex => term name].
+     * Discogs has no plain "Metal" style, only Heavy Metal, Metalcore, Black Metal..., so
+     * those also get a Metal tag, which the shop's Metal page uses.
+     */
+    public static function groups(): array {
+        return apply_filters('d2w_term_groups', [
+            'product_tag' => ['/metal/i' => 'Metal'],
+        ]);
+    }
+
+    /**
      * Sets the mapped taxonomies on a product (not saved here). $values: source => names,
      * e.g. ['genres' => ['Electronic'], 'styles' => ['House', 'Techno']]. Returns true if
      * any terms changed.
@@ -63,8 +74,15 @@ class D2W_Taxonomies {
                 continue; // Not mapped: the taxonomy is left alone.
             }
 
+            $names = (array) $values[$source];
+            foreach (self::groups()[$taxonomy] ?? [] as $pattern => $group) {
+                if (preg_grep($pattern, $names)) {
+                    $names[] = $group;
+                }
+            }
+
             $new = [];
-            foreach ((array) $values[$source] as $name) {
+            foreach ($names as $name) {
                 $id = self::term_id($taxonomy, (string) $name);
                 if ($id) {
                     $new[] = $id;
