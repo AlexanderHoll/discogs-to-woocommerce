@@ -579,6 +579,13 @@ class D2W_Release_Data {
             ];
         }
 
+        // A tracklist edited by hand on the product screen is kept, and videos are matched to it.
+        $tracklist_edited = (bool) $product->get_meta(D2W_Product_Tracklist::EDITED_META);
+        if ($tracklist_edited) {
+            $saved = json_decode((string) $product->get_meta(D2W_Product_Tracklist::META), true);
+            $tracks = is_array($saved) ? $saved : $tracks;
+        }
+
         $credits = self::credits($release);
         $weight  = (int) ($release['estimated_weight'] ?? 0);
 
@@ -597,6 +604,9 @@ class D2W_Release_Data {
             '_d2w_credit_names' => implode(', ', array_values(array_unique(array_column($credits, 'name')))),
             '_d2w_weight'    => $weight ?: '',
         ];
+        if ($tracklist_edited) {
+            unset($meta['_d2w_tracklist']);
+        }
         // Videos edited by hand on the product screen are kept as they are.
         if (!$product->get_meta(D2W_Product_Videos::EDITED_META)) {
             $meta['_d2w_videos'] = wp_json_encode(self::videos($release, $tracks), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
