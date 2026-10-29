@@ -12,6 +12,37 @@ class D2W_Link_Page {
         foreach (['d2w_auto_link', 'd2w_link_selected', 'd2w_backfill_start', 'd2w_fix_prices'] as $action) {
             add_action('admin_post_' . $action, [__CLASS__, 'handle_' . substr($action, 4)]);
         }
+        add_action('wp_ajax_d2w_backfill_status', [__CLASS__, 'ajax_backfill_status']);
+    }
+
+    /**
+     * Backfill progress for the Link & Backfill page, polled while a backfill runs.
+     */
+    public static function ajax_backfill_status() {
+        check_ajax_referer('d2w_backfill_status');
+        if (!current_user_can('manage_woocommerce')) {
+            wp_send_json_error(null, 403);
+        }
+        $status = get_option(D2W_Backfill::STATUS, []);
+        wp_send_json_success([
+            'text'       => self::backfill_text($status),
+            'running'    => self::backfill_running($status),
+            'no_release' => count(D2W_Backfill::pending_ids()),
+        ]);
+    }
+
+    private static function backfill_running(array $status): bool {
+        return !empty($status['started']) && empty($status['finished']);
+    }
+
+    private static function backfill_text(array $status): string {
+        return sprintf(
+            'Started %s, %d of %d processed%s.',
+            wp_date('j M Y, H:i', $status['started']),
+            (int) ($status['done'] ?? 0),
+            (int) ($status['total'] ?? 0),
+            !empty($status['finished']) ? ', finished' : ', running'
+        );
     }
 
     private static function guard(string $nonce): void {
@@ -129,21 +160,38 @@ class D2W_Link_Page {
                     <tr><th>Products linked to a Discogs listing</th><td><?php echo esc_html($linked); ?></td></tr>
                     <tr><th>Products not linked</th><td><?php echo esc_html($unlinked); ?></td></tr>
                     <tr><th>Not linked but carrying a CedCommerce listing ID</th><td><?php echo esc_html($ced_pending); ?></td></tr>
-                    <tr><th>Linked products without release details</th><td><?php echo esc_html($no_release); ?></td></tr>
+                    <tr><th>Linked products without release details</th><td data-d2w-no-release><?php echo esc_html($no_release); ?></td></tr>
                     <tr><th>Products missing a regular price</th><td><?php echo esc_html($prices); ?></td></tr>
                     <?php if (!empty($status['started'])): ?>
                         <tr><th>Last backfill</th><td>
-                            <?php echo esc_html(sprintf(
-                                'Started %s, %d of %d processed%s.',
-                                wp_date('j M Y, H:i', $status['started']),
-                                (int) ($status['done'] ?? 0),
-                                (int) ($status['total'] ?? 0),
-                                !empty($status['finished']) ? ', finished' : ', running'
-                            )); ?>
+                            <span class="spinner<?php echo self::backfill_running($status) ? ' is-active' : ''; ?>" data-d2w-backfill-spinner style="float: none; margin: 0 6px 0 0;"></span>
+                            <span data-d2w-backfill-status><?php echo esc_html(self::backfill_text($status)); ?></span>
                         </td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+            <?php if (self::backfill_running($status)): ?>
+                <script>
+                // While a backfill runs, refresh its progress every 10 seconds (no page reload).
+                (function () {
+                    const status = document.querySelector('[data-d2w-backfill-status]');
+                    const spinner = document.querySelector('[data-d2w-backfill-spinner]');
+                    const noRelease = document.querySelector('[data-d2w-no-release]');
+                    const body = new URLSearchParams({ action: 'd2w_backfill_status', _ajax_nonce: <?php echo wp_json_encode(wp_create_nonce('d2w_backfill_status')); ?> });
+                    const poll = () => fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body })
+                        .then((r) => r.json())
+                        .then((r) => {
+                            if (!r.success) return;
+                            status.textContent = r.data.text;
+                            noRelease.textContent = r.data.no_release;
+                            spinner.classList.toggle('is-active', r.data.running);
+                            if (r.data.running) setTimeout(poll, 10000);
+                        })
+                        .catch(() => setTimeout(poll, 30000));
+                    setTimeout(poll, 10000);
+                })();
+                </script>
+            <?php endif; ?>
 
             <h2>1. Auto-link</h2>
             <p>Links products created by the old CedCommerce Discogs plugin, using the listing ID it stored. Listings that have since sold still link, so sync knows about them.</p>

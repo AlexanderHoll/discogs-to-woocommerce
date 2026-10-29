@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format is based on 
 - Release videos: each release's embeddable YouTube videos are saved as `_d2w_videos` (ID, title, duration) with the other release details. Existing products get them from a "Re-fetch all linked products" backfill.
 - Videos are matched to tracks by title (`track` in `_d2w_videos`). A **Discogs videos** box on the product screen lets you change the matches, remove videos and add YouTube links; edited videos are kept on later fetches.
 - A **Discogs tracklist** box on the product screen to correct positions, titles and durations, remove or add tracks. An edited tracklist is kept on later fetches (`_d2w_tracklist_edited`), and videos are matched against it.
+- Link & Backfill page: while a backfill runs, a spinner shows and the processed count updates every 10 seconds without reloading.
 - `pa_pressing` attribute from the release formats: Test Pressing, Limited Edition, Numbered, Coloured Vinyl, Picture Disc, White Label, Promo, 180g, Gatefold, Repress, Reissue, Remastered. Raw format descriptions and text saved as `_d2w_formats`.
 - Credits from the release and its tracks saved as `_d2w_credits` (name, role, tracks), with `_d2w_credit_names` for search.
 - Discogs estimated weight saved as `_d2w_weight`. **Fill empty product weights** setting (on by default) sets the WooCommerce weight when a product has none.
