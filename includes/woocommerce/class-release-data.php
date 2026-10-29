@@ -615,6 +615,12 @@ class D2W_Release_Data {
             $product->update_meta_data($key, $value);
         }
 
+        // Categories and tags from genres and styles, as mapped on the Field Mapping screen.
+        D2W_Taxonomies::apply($product, [
+            'genres' => (array) ($release['genres'] ?? []),
+            'styles' => (array) ($release['styles'] ?? []),
+        ]);
+
         // Shipping: fill an empty WooCommerce weight from Discogs' estimate (grams).
         if ($weight > 0 && $product->get_weight() === '' && D2W_Discogs_Sync::enabled('d2w_fill_weight')) {
             $unit = (string) get_option('woocommerce_weight_unit', 'kg');

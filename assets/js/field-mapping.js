@@ -69,7 +69,7 @@
 
             var field = e.dataTransfer.getData('text/plain') || draggedField;
             var label = draggedLabel || getLabelForField(field);
-            if (!field) return;
+            if (!field || !accepts(zone, field)) return;
 
             assignField(zone, field, label);
 
@@ -203,7 +203,18 @@
         if (wc.indexOf('custom_meta') === 0) {
             return 'mapping[custom_meta][discogs_field][]';
         }
+        if (wc.indexOf('tax_') === 0) {
+            return 'mapping[taxonomies][' + wc.slice(4) + ']';
+        }
         return 'mapping[' + wc + '][discogs_field]';
+    }
+
+    // Taxonomy slots take only release list fields (genres, styles), which fit nowhere else.
+    function accepts(zone, field) {
+        var allowed = zone.dataset.accepts ? zone.dataset.accepts.split(',') : null;
+        var chip = document.querySelector('.d2w-source-chip[data-discogs-field="' + field + '"]');
+        var releaseOnly = chip && chip.dataset.releaseOnly === '1';
+        return allowed ? allowed.indexOf(field) !== -1 : !releaseOnly;
     }
 
     function getLabelForField(field) {

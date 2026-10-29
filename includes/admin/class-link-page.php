@@ -9,7 +9,7 @@ class D2W_Link_Page {
     const RESULT_KEY = 'd2w_link_result_';
 
     public static function register() {
-        foreach (['d2w_auto_link', 'd2w_link_selected', 'd2w_backfill_start', 'd2w_fix_prices'] as $action) {
+        foreach (['d2w_auto_link', 'd2w_link_selected', 'd2w_backfill_start', 'd2w_fix_prices', 'd2w_apply_terms'] as $action) {
             add_action('admin_post_' . $action, [__CLASS__, 'handle_' . substr($action, 4)]);
         }
         add_action('wp_ajax_d2w_backfill_status', [__CLASS__, 'ajax_backfill_status']);
@@ -108,6 +108,19 @@ class D2W_Link_Page {
         self::guard('d2w_fix_prices');
         $r = D2W_Backfill::fix_prices();
         self::done([sprintf('Set the regular price on %d product(s) that only had a display price.', $r['fixed'])]);
+    }
+
+    public static function handle_apply_terms() {
+        self::guard('d2w_apply_terms');
+        $ids     = D2W_Taxonomies::products_with_release_data();
+        $changed = 0;
+        foreach ($ids as $id) {
+            $changed += D2W_Taxonomies::apply_saved($id) ? 1 : 0;
+        }
+        if ($changed) {
+            D2W_Cache::purge_products($ids);
+        }
+        self::done([sprintf('Checked categories and tags on %d product(s); %d changed.', count($ids), $changed)]);
     }
 
     // -------------------------------------------------------------------------
@@ -243,6 +256,10 @@ class D2W_Link_Page {
             <p>Fetches each linked product's release (about two API requests per product) and sets the format and condition attributes. Runs in the background in batches.</p>
             <?php self::button('d2w_backfill_start', sprintf('Backfill %d product(s)', $no_release), 'primary'); ?>
             <?php self::button('d2w_backfill_start', 'Re-fetch all linked products', 'secondary', '<input type="hidden" name="force" value="1" />'); ?>
+
+            <h3>Categories and tags</h3>
+            <p>Applies the Field Mapping taxonomies (by default genres to categories, styles to tags) from the release details already saved, without contacting Discogs. Categories added by hand are kept. Fetches and backfills do this automatically.</p>
+            <?php self::button('d2w_apply_terms', sprintf('Apply categories and tags to %d product(s)', count(D2W_Taxonomies::products_with_release_data()))); ?>
 
             <h2>4. Fix missing regular prices</h2>
             <p>Some older products only have a display price, which breaks sale prices, price filters and price sync. This copies it into the regular price.</p>

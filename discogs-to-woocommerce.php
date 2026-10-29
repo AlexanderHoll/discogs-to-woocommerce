@@ -30,6 +30,7 @@ require_once D2W_PATH . 'includes/admin/class-field-mapping-page.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-importer.php';
 require_once D2W_PATH . 'includes/woocommerce/class-order-sync.php';
 require_once D2W_PATH . 'includes/woocommerce/class-release-data.php';
+require_once D2W_PATH . 'includes/woocommerce/class-taxonomies.php';
 require_once D2W_PATH . 'includes/woocommerce/class-product-linker.php';
 require_once D2W_PATH . 'includes/sync/class-backfill.php';
 require_once D2W_PATH . 'includes/admin/class-link-page.php';

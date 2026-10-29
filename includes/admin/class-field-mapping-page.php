@@ -43,6 +43,9 @@ class D2W_Field_Mapping_Page {
             'year'             => 'Release Year',
             'image_main'       => 'Main Image',
             'image_thumb'      => 'Thumbnail Image',
+            // Release fields: fetched just after import, for the taxonomy slots.
+            'genres'           => 'Genres (release)',
+            'styles'           => 'Styles (release)',
         ]);
     }
 
@@ -67,6 +70,10 @@ class D2W_Field_Mapping_Page {
             '_sale_price'    => ['discogs_field' => ''],
             '_sku'           => ['discogs_field' => ''],
             'featured_image' => ['discogs_field' => 'image_main'],
+            'taxonomies'     => [
+                'product_cat' => 'genres',
+                'product_tag' => 'styles',
+            ],
             'custom_meta'    => [
                 ['meta_key' => '_media_condition',  'discogs_field' => 'media_condition'],
                 ['meta_key' => '_sleeve_condition', 'discogs_field' => 'sleeve_condition'],
@@ -128,6 +135,13 @@ class D2W_Field_Mapping_Page {
         }
 
         $mapping['custom_meta'] = $custom_meta;
+
+        $taxonomies = [];
+        foreach (array_keys(D2W_Taxonomies::targets()) as $taxonomy) {
+            $df = sanitize_key($raw['taxonomies'][$taxonomy] ?? '');
+            $taxonomies[$taxonomy] = isset(D2W_Taxonomies::SOURCES[$df]) ? $df : '';
+        }
+        $mapping['taxonomies'] = $taxonomies;
         update_option(self::OPTION_KEY, $mapping);
 
         wp_redirect(admin_url('admin.php?page=d2w-field-mapping&d2w_saved=1'));
@@ -142,7 +156,8 @@ class D2W_Field_Mapping_Page {
 
         $token_list = implode(' ', array_map(
             fn($k) => '<button type="button" class="d2w-token" data-token="{' . esc_attr($k) . '}" title="Insert into template"><code>{' . esc_html($k) . '}</code></button>',
-            array_keys($discogs_fields)
+            // Release fields are not known yet when the product is created.
+            array_diff(array_keys($discogs_fields), array_keys(D2W_Taxonomies::SOURCES))
         ));
         ?>
         <div class="wrap d2w-mapping-wrap">
@@ -166,6 +181,7 @@ class D2W_Field_Mapping_Page {
                             <?php foreach ($discogs_fields as $key => $label): ?>
                                 <li class="d2w-source-chip <?php echo str_starts_with($key, 'image_') ? 'd2w-source-chip--image' : ''; ?>"
                                     draggable="true"
+                                    <?php echo isset(D2W_Taxonomies::SOURCES[$key]) ? 'data-release-only="1"' : ''; ?>
                                     data-discogs-field="<?php echo esc_attr($key); ?>"
                                     data-label="<?php echo esc_attr($label); ?>">
                                     <?php echo esc_html($label); ?>
@@ -235,6 +251,43 @@ class D2W_Field_Mapping_Page {
                                             <?php endif; ?>
                                         </div>
 
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+
+                                <tr class="d2w-meta-section-header">
+                                    <th colspan="2">
+                                        Taxonomies
+                                        <span class="d2w-meta-section-desc">Set from the release when it is fetched (just after import, on sync and on backfill). Drop Genres or Styles here. Terms are matched by name, created when missing, and categories added by hand are kept.</span>
+                                    </th>
+                                </tr>
+
+                                <?php foreach (D2W_Taxonomies::targets() as $taxonomy => $tax_label):
+                                    $tdf = (string) ($mapping['taxonomies'][$taxonomy] ?? '');
+                                    $tdl = $discogs_fields[$tdf] ?? '';
+                                ?>
+                                <tr class="d2w-target-row d2w-taxonomy-row">
+                                    <td class="d2w-target-label">
+                                        <strong><?php echo esc_html($tax_label); ?></strong>
+                                        <code class="d2w-wc-key"><?php echo esc_html($taxonomy); ?></code>
+                                    </td>
+                                    <td class="d2w-target-slot-cell">
+                                        <div class="d2w-drop-area <?php echo $tdf ? 'has-field' : ''; ?>"
+                                             data-wc-field="tax_<?php echo esc_attr($taxonomy); ?>"
+                                             data-accepts="<?php echo esc_attr(implode(',', array_keys(D2W_Taxonomies::SOURCES))); ?>">
+                                            <?php if ($tdf): ?>
+                                                <span class="d2w-assigned-chip">
+                                                    <?php echo esc_html($tdl); ?>
+                                                    <button type="button" class="d2w-clear-btn" aria-label="Remove">&times;</button>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="d2w-drop-hint">Drop Genres or Styles here</span>
+                                            <?php endif; ?>
+                                            <input type="hidden"
+                                                   name="mapping[taxonomies][<?php echo esc_attr($taxonomy); ?>]"
+                                                   value="<?php echo esc_attr($tdf); ?>"
+                                                   class="d2w-field-input" />
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
