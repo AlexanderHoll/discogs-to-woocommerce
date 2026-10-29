@@ -5,13 +5,15 @@ defined('ABSPATH') || exit;
 /**
  * Website sales of imported products.
  *
- * Always: flags the product as sold on the website so sync does not restock it while
- * the Discogs listing is still For Sale.
- * Optionally (d2w_sync_push_to_drafts, default off): sets the Discogs listing to Draft.
+ * Always: records which listings the sale used (one per copy sold, kept on the order line)
+ * and flags them as sold on the website, so sync does not restock them while they are
+ * still For Sale on Discogs.
+ * Optionally (d2w_sync_push_to_drafts, default off): sets those Discogs listings to Draft.
  */
 class D2W_Order_Sync {
 
     const ORDER_DONE_META = '_d2w_discogs_synced';
+    const ITEM_LISTINGS   = '_d2w_listing_ids';
     const ASYNC_HOOK      = 'd2w_push_order_to_discogs';
 
     public static function register() {
@@ -31,11 +33,8 @@ class D2W_Order_Sync {
             return;
         }
 
-        foreach ($items as [$product]) {
-            if (!$product->get_meta(D2W_Discogs_Sync::SOLD_ON_SITE_META)) {
-                $product->update_meta_data(D2W_Discogs_Sync::SOLD_ON_SITE_META, time());
-                $product->save_meta_data();
-            }
+        foreach ($items as [$product, $listing_ids]) {
+            D2W_Copies::mark_sold($product->get_id(), $listing_ids);
         }
 
         if (!D2W_Discogs_Sync::enabled('d2w_sync_push_to_drafts') || $order->get_meta(self::ORDER_DONE_META)) {
@@ -63,8 +62,10 @@ class D2W_Order_Sync {
             return;
         }
 
-        foreach (self::discogs_items($order) as [$product, $listing_id]) {
-            $order->add_order_note(self::draft_listing($listing_id, $product->get_name()));
+        foreach (self::discogs_items($order) as [$product, $listing_ids]) {
+            foreach ($listing_ids as $listing_id) {
+                $order->add_order_note(self::draft_listing($listing_id, $product->get_name()));
+            }
         }
 
         $order->update_meta_data(self::ORDER_DONE_META, 'done');
@@ -113,19 +114,29 @@ class D2W_Order_Sync {
     }
 
     /**
-     * @return array<int, array{0: WC_Product, 1: int}> [product, listing ID] per Discogs line item.
+     * The listings each Discogs line item used: one per copy sold, chosen once (from the
+     * holder's listings not yet sold on the website) and kept on the order line, so the
+     * processing and completed hooks pick the same ones.
+     *
+     * @return array<int, array{0: WC_Product, 1: int[]}> [product or variation, listing IDs]
      */
     private static function discogs_items(WC_Order $order): array {
         $items = [];
         foreach ($order->get_items() as $item) {
             $product = $item instanceof WC_Order_Item_Product ? $item->get_product() : null;
-            if (!$product) {
+            if (!$product || !D2W_Copies::listing_ids($product)) {
                 continue;
             }
-            $listing_id = absint($product->get_meta('_discogs_listing_id'));
-            if ($listing_id) {
-                $items[] = [$product, $listing_id];
+            $listing_ids = array_filter(array_map('absint', (array) $item->get_meta(self::ITEM_LISTINGS)));
+            if (!$listing_ids) {
+                $listing_ids = D2W_Copies::take_for_sale($product->get_id(), max(1, (int) $item->get_quantity()));
+                if (!$listing_ids) {
+                    continue;
+                }
+                $item->update_meta_data(self::ITEM_LISTINGS, $listing_ids);
+                $item->save_meta_data();
             }
+            $items[] = [$product, array_values($listing_ids)];
         }
         return $items;
     }

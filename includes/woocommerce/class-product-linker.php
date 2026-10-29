@@ -28,14 +28,16 @@ class D2W_Product_Linker {
         return $inventory;
     }
 
-    // IDs of products with no Discogs listing linked (any status except trash).
+    // IDs of products with no Discogs listing linked (any status except trash). A variable
+    // product counts as linked when any of its variations is.
     public static function unlinked_products(): array {
         global $wpdb;
         return $wpdb->get_col(
             "SELECT p.ID FROM {$wpdb->posts} p
-             LEFT JOIN {$wpdb->postmeta} l ON l.post_id = p.ID AND l.meta_key = '_discogs_listing_id'
              WHERE p.post_type = 'product' AND p.post_status NOT IN ('trash', 'auto-draft')
-               AND (l.meta_value IS NULL OR l.meta_value = '')
+               AND NOT (EXISTS (SELECT 1 FROM {$wpdb->postmeta} l WHERE l.post_id = p.ID AND l.meta_key = '_discogs_listing_id' AND l.meta_value <> '')
+                     OR EXISTS (SELECT 1 FROM {$wpdb->posts} v INNER JOIN {$wpdb->postmeta} l ON l.post_id = v.ID AND l.meta_key = '_discogs_listing_id' AND l.meta_value <> ''
+                                WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status <> 'trash'))
              ORDER BY p.ID"
         );
     }

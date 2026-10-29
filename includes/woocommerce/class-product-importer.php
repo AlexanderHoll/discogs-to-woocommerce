@@ -75,6 +75,28 @@ class D2W_Product_Importer {
             }
 
             $product = $by_id[$listing_id];
+
+            // A release already in the shop: the listing joins that product as another copy
+            // or a new variant, instead of creating a second product.
+            $existing = apply_filters('d2w_group_copies', true) ? D2W_Copies::product_for_release((int) ($product['release_id'] ?? 0)) : null;
+            if ($existing) {
+                $added = D2W_Copies::add_copy($existing, (int) $listing_id, D2W_Copies::copy_from_listing($product));
+                if (is_wp_error($added)) {
+                    $messages[] = "Listing {$listing_id} not added to '{$existing->get_name()}': " . $added->get_error_message();
+                    D2W_Logger::error("Adding listing {$listing_id} to product {$existing->get_id()} failed: " . $added->get_error_message());
+                    continue;
+                }
+                $imported[$listing_id] = $added['holder'];
+                // The copy's condition and format join the product's filter attributes.
+                $existing = wc_get_product($existing->get_id());
+                if (D2W_Release_Data::apply_listing_attributes($existing, $product)) {
+                    $existing->save();
+                }
+                D2W_Cache::purge_products([$existing->get_id()]);
+                $messages[] = sprintf("Listing %d: '%s' is already in the shop (product ID %d), %s.", $listing_id, $existing->get_name(), $existing->get_id(), $added['message']);
+                continue;
+            }
+
             $result  = self::create_product($product, $mapping, $status);
 
             if (is_wp_error($result)) {
@@ -91,7 +113,8 @@ class D2W_Product_Importer {
         return $messages;
     }
 
-    // listing_id => product_id for every product that has already been imported.
+    // listing_id => holder ID (product, or variation of a variable product) for every
+    // imported listing. A holder can have several listings (D2W_Copies).
     public static function get_imported_listing_ids(): array {
         global $wpdb;
 
@@ -100,7 +123,9 @@ class D2W_Product_Importer {
                 "SELECT pm.meta_value AS listing_id, pm.post_id
                  FROM {$wpdb->postmeta} pm
                  INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-                 WHERE pm.meta_key = %s AND p.post_type = 'product' AND p.post_status <> 'trash'",
+                 LEFT JOIN {$wpdb->posts} parent ON parent.ID = p.post_parent
+                 WHERE pm.meta_key = %s AND pm.meta_value <> '' AND p.post_status <> 'trash'
+                   AND (p.post_type = 'product' OR (p.post_type = 'product_variation' AND parent.post_status <> 'trash'))",
                 '_discogs_listing_id'
             )
         );
@@ -156,6 +181,7 @@ class D2W_Product_Importer {
         $wc->update_meta_data('_discogs_listing_id', (string) $product['id']);
         $wc->update_meta_data('_discogs_release_id', (string) ($product['release_id'] ?? ''));
         $wc->update_meta_data('_discogs_last_synced', time());
+        $wc->update_meta_data(D2W_Copies::COPY_META, D2W_Copies::copy_from_listing($product));
 
         // Filterable format / condition attributes from the listing; release details follow async.
         D2W_Release_Data::apply_listing_attributes($wc, $product);

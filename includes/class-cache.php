@@ -19,7 +19,8 @@ class D2W_Cache {
     const CF_BATCH    = 30; // Cloudflare's limit of URLs per purge request.
 
     public static function purge_products(array $product_ids): void {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $product_ids))));
+        // Variations are shown on their parent product's page.
+        $ids = array_values(array_unique(array_filter(array_map(static fn($id) => D2W_Copies::product_id((int) $id), $product_ids))));
         if (!$ids) {
             return;
         }

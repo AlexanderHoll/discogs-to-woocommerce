@@ -142,6 +142,9 @@ Everything is optional: a product may be linked without release details, and old
 | `_d2w_country` | Country, e.g. `UK` | Release fetch |
 | `_d2w_genres` | Comma separated, e.g. `Electronic, Hip Hop` | Release fetch |
 | `_d2w_styles` | Comma separated, e.g. `House, Breakbeat` | Release fetch |
+| `_d2w_copy` | Grades, price and seller notes of the copies a product or variation holds (`{"media":"M","sleeve":"M","price":"22.00","notes":""}`), used to tell identical copies from variants | Import |
+| `_d2w_sold_listings` | `{listing ID: time}` for listings sold on the website (replaces the single `_d2w_sold_on_site` flag, still read) | Website order |
+| `_d2w_gone_listings` | `{listing ID: time}` for listings sync has counted as sold on Discogs, so a sale is only taken off stock once | Sync |
 | `_d2w_terms` | Term IDs D2W set per taxonomy (`{"product_cat":[22],"product_tag":[51,60]}`), so later fetches replace only those and keep categories added by hand | Release fetch |
 | `_d2w_tracklist` | JSON array of `{"position":"A1","title":"...","duration":"5:32"}`, tracks only (headings and index tracks skipped); `duration` may be empty. Editable per product in the **Discogs tracklist** box on the product screen | Release fetch, product screen |
 | `_d2w_videos` | JSON array of `{"id":"URytteyfxRM","title":"...","duration":276,"track":"A1"}`: the release's embeddable YouTube videos in Discogs order. `id` is the YouTube video ID, `duration` in seconds (0 if unknown), `track` the tracklist position the video was matched to (empty if none). Editable per product in the **Discogs videos** box on the product screen | Release fetch, product screen |

@@ -219,10 +219,13 @@ class D2W_Release_Data {
      * other attributes. New attributes are hidden from the default "Additional information"
      * tab; existing ones keep their visibility.
      */
-    private static function set_attribute(WC_Product $product, string $taxonomy, array $term_ids): bool {
+    private static function set_attribute(WC_Product $product, string $taxonomy, array $term_ids, bool $merge = false): bool {
         $term_ids = array_values(array_unique(array_filter(array_map('intval', $term_ids))));
         $attrs    = $product->get_attributes();
         $current  = isset($attrs[$taxonomy]) ? array_map('intval', $attrs[$taxonomy]->get_options()) : null;
+        if ($merge && $current) {
+            $term_ids = array_values(array_unique(array_merge($current, $term_ids)));
+        }
 
         if ($current !== null) {
             sort($current);
@@ -264,6 +267,8 @@ class D2W_Release_Data {
         $media  = $listing['media_condition'] ?? ($listing['condition'] ?? '');
         $sleeve = $listing['sleeve_condition'] ?? '';
         $format = $listing['format'] ?? ($listing['release']['format'] ?? '');
+        // A variable product's variants can differ, so its values are added to, not replaced.
+        $merge  = $product->is_type('variable');
 
         $changed = false;
         foreach (['pa_media_condition' => $media, 'pa_sleeve_condition' => $sleeve] as $taxonomy => $value) {
@@ -272,12 +277,12 @@ class D2W_Release_Data {
                 continue;
             }
             [$slug, $order] = self::GRADES[$code];
-            $changed = self::set_attribute($product, $taxonomy, [self::term_id($taxonomy, $code, $slug, $order)]) || $changed;
+            $changed = self::set_attribute($product, $taxonomy, [self::term_id($taxonomy, $code, $slug, $order)], $merge) || $changed;
         }
 
         $name = self::format_name((string) $format);
         if ($name !== '') {
-            $changed = self::set_attribute($product, 'pa_format', [self::term_id('pa_format', $name, self::format_slug($name))]) || $changed;
+            $changed = self::set_attribute($product, 'pa_format', [self::term_id('pa_format', $name, self::format_slug($name))], $merge) || $changed;
         }
 
         return $changed;

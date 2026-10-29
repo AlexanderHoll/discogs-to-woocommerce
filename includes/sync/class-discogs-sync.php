@@ -196,86 +196,143 @@ class D2W_Discogs_Sync {
         $prices   = self::enabled('d2w_sync_prices');
         $currency = get_woocommerce_currency();
 
-        // Missing in-stock listings, checked before anything is applied (see guard below).
-        $missing = [];
-        $changes = [];
+        // A holder (product, or variation) can hold several listings of one release; its
+        // stock is the number of them For Sale on Discogs and not sold on the website.
+        $holders = [];
+        foreach ($imported as $listing_id => $holder_id) {
+            $holders[(int) $holder_id][] = (int) $listing_id;
+        }
 
-        foreach ($imported as $listing_id => $product_id) {
-            $product = wc_get_product($product_id);
+        $plans   = [];
+        $missing = []; // holder ID => listing IDs counted in stock but gone from the inventory
+        $changes = [];
+        $in_stock_listings = 0;
+
+        foreach ($holders as $holder_id => $listing_ids) {
+            $product = wc_get_product($holder_id);
             if (!$product) {
                 continue;
             }
-            $report['counts']['checked']++;
+            $report['counts']['checked'] += count($listing_ids);
 
-            $listing   = $listings[$listing_id] ?? null;
-            $in_stock  = $product->get_stock_status() === 'instock';
-            $base      = ['product_id' => (int) $product_id, 'listing_id' => (int) $listing_id, 'name' => $product->get_name()];
+            $sold     = D2W_Copies::sold_listings($holder_id);
+            $was_gone = D2W_Copies::gone_listings($holder_id);
+            $current  = $product->get_stock_status() === 'instock' ? max(1, (int) $product->get_stock_quantity()) : 0;
+            $base     = ['product_id' => $holder_id, 'listing_id' => $listing_ids[0], 'name' => self::holder_name($product)];
+            $for_sale = 0;
+            $gone     = [];
+            $returned = [];
+            $first    = null;
 
-            if ($listing === null) {
-                if ($in_stock) {
-                    $missing[] = $base;
-                } elseif ($product->get_meta(self::SOLD_ON_SITE_META)) {
-                    // Gone from Discogs too, so a future relist is a genuine relist.
-                    $changes[] = $base + ['type' => 'clear_flag', 'detail' => 'Listing no longer For Sale; website sale flag cleared'];
+            foreach ($listing_ids as $listing_id) {
+                $listing = $listings[$listing_id] ?? null;
+                if ($listing === null) {
+                    if (isset($sold[$listing_id])) {
+                        // Gone from Discogs too, so a future relist is a genuine relist.
+                        $changes[] = ['listing_id' => $listing_id] + $base + ['type' => 'clear_flag', 'detail' => 'Listing no longer For Sale; website sale flag cleared'];
+                    } elseif (!isset($was_gone[$listing_id])) {
+                        $gone[] = $listing_id; // Not counted as sold yet.
+                    }
+                    continue;
                 }
-                continue;
-            }
-
-            // Keep the filterable format / condition attributes in step with the listing.
-            if (D2W_Release_Data::listing_attributes_differ($product, $listing)) {
-                $changes[] = $base + ['type' => 'details', 'detail' => 'Format or condition attributes updated from the listing'];
-            }
-
-            if (!$in_stock && $restock) {
-                if ($product->get_meta(self::SOLD_ON_SITE_META)) {
+                if (isset($was_gone[$listing_id])) {
+                    $returned[] = $listing_id; // Sold on Discogs before, For Sale again.
+                }
+                if (isset($sold[$listing_id])) {
                     $report['counts']['skipped']++;
                     $report['messages'][] = sprintf(
                         '"%s" sold on the website but listing %d is still For Sale on Discogs. Not restocked; remove or draft it on Discogs.',
-                        $product->get_name(),
+                        $base['name'],
                         $listing_id
                     );
-                } else {
-                    $changes[] = $base + ['type' => 'restock', 'detail' => 'Listing is For Sale again; stock set to 1'];
+                    continue;
                 }
+                $for_sale++;
+                $first ??= ['id' => $listing_id, 'listing' => $listing];
             }
 
-            if ($prices && isset($listing['price']['value'])) {
-                $new = wc_format_decimal($listing['price']['value'], 2);
+            // A missing listing only matters while the holder has stock to take it from.
+            if ($gone && $current > 0) {
+                $missing[$holder_id] = array_slice($gone, 0, $current);
+            }
+            $in_stock_listings += $current;
+            $plans[$holder_id] = ['product' => $product, 'current' => $current, 'for_sale' => $for_sale, 'returned' => $returned, 'gone' => [], 'base' => $base];
+
+            if (!$first) {
+                continue;
+            }
+            $fbase = ['listing_id' => $first['id']] + $base;
+
+            // Keep the filterable format / condition attributes in step with the listing
+            // (a variation's go on its parent product, which the shop filters).
+            $attr_product = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
+            if ($attr_product && D2W_Release_Data::listing_attributes_differ($attr_product, $first['listing'])) {
+                $changes[] = $fbase + ['type' => 'details', 'detail' => 'Format or condition attributes updated from the listing'];
+            }
+
+            if ($prices && isset($first['listing']['price']['value'])) {
+                $new = wc_format_decimal($first['listing']['price']['value'], 2);
                 $old = wc_format_decimal($product->get_regular_price(), 2);
-                if (($listing['price']['currency'] ?? $currency) !== $currency) {
+                if (($first['listing']['price']['currency'] ?? $currency) !== $currency) {
                     $report['counts']['skipped']++;
-                    $report['messages'][] = sprintf('Price for listing %d is in %s, store uses %s. Not updated.', $listing_id, $listing['price']['currency'], $currency);
+                    $report['messages'][] = sprintf('Price for listing %d is in %s, store uses %s. Not updated.', $first['id'], $first['listing']['price']['currency'], $currency);
                 } elseif ($product->get_regular_price() === '' || (float) $new !== (float) $old) {
                     $from      = $product->get_regular_price() === '' ? 'not set' : $old;
-                    $changes[] = $base + ['type' => 'price', 'detail' => "Regular price {$from} to {$new}", 'price' => $new];
+                    $changes[] = $fbase + ['type' => 'price', 'detail' => "Regular price {$from} to {$new}", 'price' => $new];
                 }
             }
         }
 
-        // Guard against a bad API response emptying the shop: if most in-stock products are
+        // Guard against a bad API response emptying the shop: if most in-stock listings are
         // missing at once, stop rather than double-check (and mark sold) each one.
-        $in_stock_total = count(array_filter($imported, static fn($pid) => ($p = wc_get_product($pid)) && $p->get_stock_status() === 'instock'));
-        $max_ratio      = (float) apply_filters('d2w_sync_max_missing_ratio', 0.5);
-        if (count($missing) >= 10 && $in_stock_total > 0 && count($missing) / $in_stock_total > $max_ratio) {
+        $missing_total = array_sum(array_map('count', $missing));
+        $max_ratio     = (float) apply_filters('d2w_sync_max_missing_ratio', 0.5);
+        if ($missing_total >= 10 && $in_stock_listings > 0 && $missing_total / $in_stock_listings > $max_ratio) {
             $report['status']     = 'error';
-            $report['messages'][] = sprintf('%d of %d in-stock products are missing from Discogs. Aborted without changes; check the Discogs account and run again.', count($missing), $in_stock_total);
+            $report['messages'][] = sprintf('%d of %d in-stock listings are missing from Discogs. Aborted without changes; check the Discogs account and run again.', $missing_total, $in_stock_listings);
             $report['counts']['errors']++;
             D2W_Logger::error(end($report['messages']));
             return;
         }
 
-        // Double-check each missing listing before marking it sold.
-        foreach ($missing as $base) {
-            $status = D2W_Discogs_API::fetch_listing_status($base['listing_id']);
-            if ($status === null) {
-                $report['counts']['skipped']++;
-                continue;
+        // Double-check each missing listing before counting it as sold.
+        $sold_now = [];
+        foreach ($missing as $holder_id => $gone) {
+            foreach ($gone as $listing_id) {
+                $status = D2W_Discogs_API::fetch_listing_status($listing_id);
+                if ($status === null) {
+                    $report['counts']['skipped']++; // Unknown: leave the copy in stock.
+                    continue;
+                }
+                if ($status === 'For Sale') {
+                    // Listed but missed by the paged fetch (e.g. inventory changed mid-run).
+                    continue;
+                }
+                $sold_now[$holder_id][] = "{$listing_id} ({$status})";
+                $plans[$holder_id]['gone'][] = $listing_id;
             }
-            if ($status === 'For Sale') {
-                // Listed but missed by the paged fetch (e.g. inventory changed mid-run).
-                continue;
+        }
+
+        // Stock moves by what changed on Discogs: one less per listing sold there, one more
+        // per listing For Sale again. Stock kept beyond the listings is left alone.
+        foreach ($plans as $holder_id => $plan) {
+            $current  = $plan['current'];
+            $returned = $restock ? $plan['returned'] : [];
+            $target   = max(0, $current - count($plan['gone']) + count($returned));
+            // Out of stock while a listing is still For Sale (not sold on the website): back in.
+            if ($restock && $target === 0 && $plan['for_sale'] > 0) {
+                $target = $plan['for_sale'];
             }
-            $changes[] = $base + ['type' => 'sold', 'detail' => "Discogs status: {$status}; marked out of stock"];
+            $memo = ['gone_add' => $plan['gone'], 'gone_remove' => $plan['returned']];
+            if ($target < $current) {
+                $detail = 'Discogs listing ' . implode(', ', $sold_now[$holder_id] ?? []) . " no longer For Sale; stock {$current} to {$target}";
+                $changes[] = $plan['base'] + $memo + ['type' => 'sold', 'detail' => $target ? $detail : $detail . ', marked out of stock', 'qty' => $target];
+            } elseif ($target > $current) {
+                $changes[] = $plan['base'] + $memo + ['type' => 'restock', 'detail' => "Listing(s) For Sale again; stock {$current} to {$target}", 'qty' => $target];
+            } elseif ($plan['gone'] || $plan['returned']) {
+                // Nothing to change in stock (e.g. restocking is off), but remember the listings.
+                $changes[] = $plan['base'] + $memo + ['type' => 'gone_memo', 'detail' => 'Discogs listing status recorded'];
+            }
         }
 
         // New listings not yet on the website.
@@ -313,7 +370,7 @@ class D2W_Discogs_Sync {
         self::apply($changes, $listings, $report);
 
         $now = time();
-        foreach ($imported as $product_id) {
+        foreach (array_unique($imported) as $product_id) {
             update_post_meta($product_id, '_discogs_last_synced', $now);
         }
         update_option(self::NEW_LISTINGS, ['count' => max(0, $report['counts']['new'] - $report['counts']['imported']), 'time' => $now], false);
@@ -336,23 +393,28 @@ class D2W_Discogs_Sync {
 
             switch ($change['type']) {
                 case 'sold':
-                    $product->set_manage_stock(true);
-                    $product->set_stock_quantity(0);
-                    $product->set_stock_status('outofstock');
-                    break;
                 case 'restock':
+                    $qty = (int) ($change['qty'] ?? ($change['type'] === 'sold' ? 0 : 1));
                     $product->set_manage_stock(true);
-                    $product->set_stock_quantity(1);
-                    $product->set_stock_status('instock');
+                    $product->set_stock_quantity($qty);
+                    $product->set_stock_status($qty > 0 ? 'instock' : 'outofstock');
+                    D2W_Copies::note_gone($product->get_id(), $change['gone_add'] ?? [], $change['gone_remove'] ?? []);
+                    break;
+                case 'gone_memo':
+                    D2W_Copies::note_gone($product->get_id(), $change['gone_add'] ?? [], $change['gone_remove'] ?? []);
                     break;
                 case 'price':
                     $product->set_regular_price($change['price']);
                     break;
                 case 'clear_flag':
-                    $product->delete_meta_data(self::SOLD_ON_SITE_META);
+                    D2W_Copies::clear_sold($product->get_id(), (int) $change['listing_id']);
                     break;
                 case 'details':
-                    D2W_Release_Data::apply_listing_attributes($product, $listings[$change['listing_id']] ?? []);
+                    // A variation's attributes go on its parent product, which the shop filters.
+                    $attr_product = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : $product;
+                    if ($attr_product && D2W_Release_Data::apply_listing_attributes($attr_product, $listings[$change['listing_id']] ?? []) && $attr_product !== $product) {
+                        $attr_product->save();
+                    }
                     break;
             }
 
@@ -375,6 +437,16 @@ class D2W_Discogs_Sync {
                 $report['messages'][] = $message;
             }
         }
+    }
+
+    // Product name, with the variant for a variation ("Pendulum - Inertia (Signed)").
+    private static function holder_name(WC_Product $product): string {
+        if (!$product->is_type('variation')) {
+            return $product->get_name();
+        }
+        $parent  = wc_get_product($product->get_parent_id());
+        $variant = D2W_Copies::variant_of($product);
+        return ($parent ? $parent->get_name() : $product->get_name()) . ($variant !== '' ? " ({$variant})" : '');
     }
 
     private static function record_run(array $report): void {

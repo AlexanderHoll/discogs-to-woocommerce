@@ -9,7 +9,7 @@ class D2W_Link_Page {
     const RESULT_KEY = 'd2w_link_result_';
 
     public static function register() {
-        foreach (['d2w_auto_link', 'd2w_link_selected', 'd2w_backfill_start', 'd2w_fix_prices', 'd2w_apply_terms'] as $action) {
+        foreach (['d2w_auto_link', 'd2w_link_selected', 'd2w_backfill_start', 'd2w_fix_prices', 'd2w_apply_terms', 'd2w_merge_release'] as $action) {
             add_action('admin_post_' . $action, [__CLASS__, 'handle_' . substr($action, 4)]);
         }
         add_action('wp_ajax_d2w_backfill_status', [__CLASS__, 'ajax_backfill_status']);
@@ -121,6 +121,24 @@ class D2W_Link_Page {
             D2W_Cache::purge_products($ids);
         }
         self::done([sprintf('Checked categories and tags on %d product(s); %d changed.', count($ids), $changed)]);
+    }
+
+    // Merges every product holding a release into the oldest one (D2W_Copies::merge()).
+    public static function handle_merge_release() {
+        self::guard('d2w_merge_release');
+        $release_id = absint($_POST['release_id'] ?? 0);
+        $ids        = D2W_Copies::duplicate_releases()[$release_id] ?? [];
+        if (count($ids) < 2) {
+            self::done(['Nothing to merge: that release is no longer on more than one product.']);
+        }
+        $into     = (int) array_shift($ids);
+        $messages = [];
+        foreach ($ids as $id) {
+            $result = D2W_Copies::merge(wc_get_product($into), wc_get_product($id));
+            $messages[] = is_wp_error($result) ? "Product {$id} not merged: " . $result->get_error_message() : $result;
+        }
+        D2W_Cache::purge_products(array_merge([$into], $ids));
+        self::done($messages);
     }
 
     // -------------------------------------------------------------------------
@@ -260,6 +278,35 @@ class D2W_Link_Page {
             <h3>Categories and tags</h3>
             <p>Applies the Field Mapping taxonomies (by default genres to categories, styles to tags) from the release details already saved, without contacting Discogs. Categories added by hand are kept. Fetches and backfills do this automatically.</p>
             <?php self::button('d2w_apply_terms', sprintf('Apply categories and tags to %d product(s)', count(D2W_Taxonomies::products_with_release_data()))); ?>
+
+            <h3>Same release on several products</h3>
+            <p>New listings for a release that is already in the shop join that product: an identical copy adds stock, a different one (signed, another grade, price or notes) becomes a variant. Products imported before that can be merged here: everything moves onto the oldest product, the others go to the bin.</p>
+            <?php $duplicates = D2W_Copies::duplicate_releases(); ?>
+            <?php if (!$duplicates): ?>
+                <p><em>No release is on more than one product.</em></p>
+            <?php else: ?>
+                <table class="widefat striped" style="max-width: 900px">
+                    <thead><tr><th>Release</th><th>Products</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($duplicates as $release_id => $ids): ?>
+                        <tr>
+                            <td><a href="<?php echo esc_url('https://www.discogs.com/release/' . $release_id); ?>" target="_blank" rel="noopener"><?php echo esc_html($release_id); ?></a></td>
+                            <td>
+                                <?php foreach ($ids as $i => $id):
+                                    $p = wc_get_product($id);
+                                    if (!$p) { continue; }
+                                    $copy = D2W_Copies::copy_of(D2W_Copies::holders($p)[0] ?? $p);
+                                    ?>
+                                    <a href="<?php echo esc_url(get_edit_post_link($id)); ?>"><?php echo esc_html($p->get_name()); ?></a>
+                                    <span class="description">#<?php echo (int) $id; ?>, <?php echo esc_html(trim($copy['media'] . ' / ' . $copy['sleeve'], ' /') ?: 'no grades'); ?>, <?php echo wp_kses_post(wc_price((float) $copy['price'])); ?><?php echo $copy['notes'] !== '' ? ', &ldquo;' . esc_html(wp_trim_words($copy['notes'], 8)) . '&rdquo;' : ''; ?><?php echo $i === 0 ? ' (kept)' : ''; ?></span><br />
+                                <?php endforeach; ?>
+                            </td>
+                            <td><?php self::button('d2w_merge_release', 'Merge', 'secondary', '<input type="hidden" name="release_id" value="' . (int) $release_id . '" />'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
 
             <h2>4. Fix missing regular prices</h2>
             <p>Some older products only have a display price, which breaks sale prices, price filters and price sync. This copies it into the regular price.</p>

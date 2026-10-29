@@ -21,12 +21,15 @@ class D2W_Backfill {
     }
 
     // Linked products that still need release data (or all linked products when $force).
+    // A variable product is linked through its variations' listings.
     public static function pending_ids(bool $force = false, int $limit = 0): array {
         global $wpdb;
         $sql = "SELECT p.ID FROM {$wpdb->posts} p
-                INNER JOIN {$wpdb->postmeta} l ON l.post_id = p.ID AND l.meta_key = '_discogs_listing_id' AND l.meta_value <> ''
                 LEFT JOIN {$wpdb->postmeta} f ON f.post_id = p.ID AND f.meta_key = %s
-                WHERE p.post_type = 'product' AND p.post_status NOT IN ('trash', 'auto-draft')" .
+                WHERE p.post_type = 'product' AND p.post_status NOT IN ('trash', 'auto-draft')
+                  AND (EXISTS (SELECT 1 FROM {$wpdb->postmeta} l WHERE l.post_id = p.ID AND l.meta_key = '_discogs_listing_id' AND l.meta_value <> '')
+                     OR EXISTS (SELECT 1 FROM {$wpdb->posts} v INNER JOIN {$wpdb->postmeta} l ON l.post_id = v.ID AND l.meta_key = '_discogs_listing_id' AND l.meta_value <> ''
+                                WHERE v.post_parent = p.ID AND v.post_type = 'product_variation' AND v.post_status <> 'trash'))" .
                ($force ? '' : ' AND f.meta_id IS NULL') .
                ' ORDER BY p.ID' . ($limit > 0 ? ' LIMIT ' . (int) $limit : '');
         return array_map('intval', $wpdb->get_col($wpdb->prepare($sql, D2W_Release_Data::FETCHED_META)));
@@ -47,7 +50,7 @@ class D2W_Backfill {
                 continue;
             }
             $counts['processed']++;
-            $listing_id = absint($product->get_meta('_discogs_listing_id'));
+            $listing_id = (int) (D2W_Copies::listing_ids(D2W_Copies::holders($product)[0] ?? $product)[0] ?? 0);
             $listing    = $inventory[$listing_id] ?? D2W_Discogs_API::fetch_listing($listing_id);
 
             if ($dry_run) {
